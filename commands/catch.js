@@ -2026,8 +2026,16 @@ async function attemptCatch(message, userId, displayName, cryopod, boost) {
   // Select random dinosaur
   const { dinosaur, hasPrayerBuff, prayBoost } = selectRandomDinosaur(userId);
 
-  // Calculate catch chance
+  // Get user's inventory to display available cryopods
+  const inventory = (await db.get(`inventory_${userId}`)) || {};
+
+  // Calculate catch chance (we'll use this for display)
   const catchChance = calculateCatchChance(cryopod, boost, dinosaur, userId);
+
+  // Filter available cryopods
+  const availableCryopods = CRYOPODS.filter(
+    (pod) => inventory[pod.id] && inventory[pod.id].quantity > 0
+  );
 
   // Create initial encounter embed
   const encounterEmbed = new EmbedBuilder()
@@ -2058,11 +2066,11 @@ async function attemptCatch(message, userId, displayName, cryopod, boost) {
     })
     .setTimestamp();
 
-  // Create action buttons - Catch or Battle
+  // Create action buttons - Battle option
   const actionRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId("throw_cryopod")
-      .setLabel(`Throw ${cryopod.name}`)
+      .setCustomId("choose_cryopod")
+      .setLabel(`Choose Cryopod`)
       .setStyle(ButtonStyle.Primary)
       .setEmoji("🔵"),
     new ButtonBuilder()
@@ -2082,7 +2090,7 @@ async function attemptCatch(message, userId, displayName, cryopod, boost) {
   const encounterData = {
     userId,
     dinosaur,
-    cryopod,
+    cryopod, // Default cryopod (will be changed if user selects different one)
     boost,
     catchChance,
     battled: false,
@@ -2092,7 +2100,7 @@ async function attemptCatch(message, userId, displayName, cryopod, boost) {
 
   // Set up collector for button interactions
   const filter = (i) =>
-    (i.customId === "throw_cryopod" || i.customId === "battle") &&
+    (i.customId === "choose_cryopod" || i.customId === "battle") &&
     i.user.id === userId;
 
   const collector = encounterMsg.createMessageComponentCollector({
@@ -2101,10 +2109,16 @@ async function attemptCatch(message, userId, displayName, cryopod, boost) {
   });
 
   collector.on("collect", async (i) => {
-    if (i.customId === "throw_cryopod") {
-      // User chose to throw the cryopod immediately
+    if (i.customId === "choose_cryopod") {
+      // User chose to select a cryopod
       collector.stop();
-      await processCryopodThrow(encounterMsg, encounterData, displayName);
+      await presentCryopodSelection(
+        encounterMsg,
+        encounterData,
+        displayName,
+        availableCryopods,
+        inventory
+      );
     } else if (i.customId === "battle") {
       // User chose to battle first
       collector.stop();
@@ -2112,12 +2126,214 @@ async function attemptCatch(message, userId, displayName, cryopod, boost) {
     }
   });
 
-  // If no choice is made, default to throwing the cryopod
+  // If no choice is made, default to throwing the best cryopod
   collector.on("end", async (collected) => {
     if (collected.size === 0) {
       await processCryopodThrow(encounterMsg, encounterData, displayName);
     }
   });
+}
+
+// Show available cryopods to the user to choose from
+async function presentCryopodSelection(
+  message,
+  encounterData,
+  displayName,
+  availableCryopods,
+  inventory
+) {
+  const { userId, dinosaur, boost } = encounterData;
+
+  // Create the embed showing cryopod options
+  const selectEmbed = new EmbedBuilder()
+    .setColor(RARITY_COLORS[dinosaur.rarity])
+    .setTitle("🔵 Choose Your Cryopod")
+    .setDescription(
+      `${displayName}, select a cryopod to catch the wild **${dinosaur.name}**!`
+    )
+    .setImage(dinosaur.image)
+    .setFooter({
+      text: "Different cryopods have different catch rates",
+      iconURL: message.client.user.displayAvatarURL(),
+    })
+    .setTimestamp();
+
+  // Create buttons for each available cryopod
+  const cryopodButtons = [];
+  const rows = [];
+
+  // Add details for each cryopod to the embed
+  availableCryopods.forEach((pod) => {
+    const podCount = inventory[pod.id]?.quantity || 0;
+
+    // Calculate catch chance for this specific pod
+    const podCatchChance = calculateCatchChance(pod, boost, dinosaur, userId);
+
+    selectEmbed.addFields({
+      name: `${pod.emoji} ${pod.name} (${podCount}x available)`,
+      value: `**Base Catch Rate:** ${Math.round(pod.catchRate * 100)}%
+**With This Dinosaur:** ${Math.round(podCatchChance * 100)}% chance
+${
+  dinosaur.tier === "boss" && pod.id !== "cryopod_artifact"
+    ? "**Warning:** Not recommended for legendary dinosaurs!"
+    : ""
+}`,
+      inline: true,
+    });
+
+    // Create button for this pod
+    const button = new ButtonBuilder()
+      .setCustomId(`pod_${pod.id}`)
+      .setLabel(`${pod.name} (${podCount}x)`)
+      .setStyle(
+        pod.id === "cryopod_artifact"
+          ? ButtonStyle.Success
+          : ButtonStyle.Primary
+      )
+      .setEmoji(pod.emoji);
+
+    cryopodButtons.push(button);
+  });
+
+  // Add "Use Best Cryopod" button
+  const useBestButton = new ButtonBuilder()
+    .setCustomId(`use_best_pod`)
+    .setLabel(`Use Best Cryopod`)
+    .setStyle(ButtonStyle.Success)
+    .setEmoji("⭐");
+
+  cryopodButtons.push(useBestButton);
+
+  // Split buttons into rows (max 2 buttons per row)
+  for (let i = 0; i < cryopodButtons.length; i += 2) {
+    const row = new ActionRowBuilder().addComponents(
+      cryopodButtons.slice(i, Math.min(i + 2, cryopodButtons.length))
+    );
+    rows.push(row);
+  }
+
+  // Send selection message
+  await message.edit({
+    embeds: [selectEmbed],
+    components: rows,
+  });
+
+  // Create collector for cryopod selection
+  const filter = (i) =>
+    (i.customId.startsWith("pod_") || i.customId === "use_best_pod") &&
+    i.user.id === userId;
+
+  const collector = message.createMessageComponentCollector({
+    filter,
+    time: 30000, // 30 seconds to select
+  });
+
+  collector.on("collect", async (i) => {
+    collector.stop();
+
+    // Use user's inventory again to make sure we have the most up-to-date data
+    const currentInventory = (await db.get(`inventory_${userId}`)) || {};
+
+    if (i.customId === "use_best_pod") {
+      // Find the best cryopod available
+      const bestPod = findBestCryopod(currentInventory);
+
+      // Update the cryopod in encounterData
+      encounterData.cryopod = bestPod;
+
+      // Use the cryopod (decrease quantity by 1)
+      currentInventory[bestPod.id].quantity--;
+      await db.set(`inventory_${userId}`, currentInventory);
+
+      // Show the cryopod being used
+      await i.update({
+        content: `Using your best cryopod: **${bestPod.name}**!`,
+        components: [],
+      });
+
+      // Continue with throw
+      await processCryopodThrow(message, encounterData, displayName);
+    } else {
+      // Extract the pod ID from the button ID
+      const selectedPodId = i.customId.substring(4); // Remove "pod_" prefix
+      const selectedPod = CRYOPODS.find((pod) => pod.id === selectedPodId);
+
+      if (selectedPod && currentInventory[selectedPodId]?.quantity > 0) {
+        // Update the cryopod in encounterData
+        encounterData.cryopod = selectedPod;
+
+        // Use the cryopod (decrease quantity by 1)
+        currentInventory[selectedPodId].quantity--;
+        await db.set(`inventory_${userId}`, currentInventory);
+
+        // Show the cryopod being used
+        await i.update({
+          content: `You selected: **${selectedPod.name}**!`,
+          components: [],
+        });
+
+        // Continue with throw
+        await processCryopodThrow(message, encounterData, displayName);
+      } else {
+        // Something went wrong (maybe user ran out of this cryopod)
+        // Fall back to using best available pod
+        const bestPod = findBestCryopod(currentInventory);
+
+        // Update the cryopod in encounterData
+        encounterData.cryopod = bestPod;
+
+        // Use the cryopod (decrease quantity by 1)
+        currentInventory[bestPod.id].quantity--;
+        await db.set(`inventory_${userId}`, currentInventory);
+
+        await i.update({
+          content: `Something went wrong. Using your best cryopod: **${bestPod.name}**!`,
+          components: [],
+        });
+
+        // Continue with throw
+        await processCryopodThrow(message, encounterData, displayName);
+      }
+    }
+  });
+
+  // Handle selection timeout
+  collector.on("end", async (collected, reason) => {
+    if (reason === "time" && collected.size === 0) {
+      // If no selection was made, use the best cryopod
+      const currentInventory = (await db.get(`inventory_${userId}`)) || {};
+      const bestPod = findBestCryopod(currentInventory);
+
+      // Update the cryopod in encounterData
+      encounterData.cryopod = bestPod;
+
+      // Use the cryopod (decrease quantity by 1)
+      currentInventory[bestPod.id].quantity--;
+      await db.set(`inventory_${userId}`, currentInventory);
+
+      await message.edit({
+        content: `No selection made in time. Using your best cryopod: **${bestPod.name}**!`,
+        components: [],
+      });
+
+      // Continue with throw
+      await processCryopodThrow(message, encounterData, displayName);
+    }
+  });
+}
+
+// Helper function to find the best cryopod in user's inventory
+function findBestCryopod(inventory) {
+  // Start from the best cryopod (at the end of the CRYOPODS array)
+  for (let i = CRYOPODS.length - 1; i >= 0; i--) {
+    const pod = CRYOPODS[i];
+    if (inventory[pod.id]?.quantity > 0) {
+      return pod;
+    }
+  }
+
+  // Fallback to basic pod (though this shouldn't happen if we checked earlier)
+  return CRYOPODS[0];
 }
 
 // Process the cryopod throw and determine if catch is successful
