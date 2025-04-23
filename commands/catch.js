@@ -2595,6 +2595,8 @@ async function executeBattle(
   encounterData,
   displayName
 ) {
+  const { userId } = encounterData; // Extract userId from encounterData to fix the error
+
   // Simplified battle loop
   let battleTurn = 0;
   let battleLogs = [];
@@ -2733,8 +2735,33 @@ Better luck next time!`,
       iconURL: message.client.user.displayAvatarURL(),
     });
 
-  // Add XP gain if battle was won
+  // Add coins and XP if battle was won
   if (battleWon) {
+    // Calculate coins based on dinosaur value and rarity
+    const coinMultipliers = {
+      common: 0.05,
+      uncommon: 0.08,
+      rare: 0.12,
+      legendary: 0.15,
+    };
+
+    // Calculate coin reward (5-15% of dinosaur value based on rarity)
+    const coinReward = Math.round(
+      wildDino.value * (coinMultipliers[wildDino.rarity] || 0.05)
+    );
+
+    // Add coins to user balance
+    await db.add(`cash_${userId}`, coinReward);
+
+    // Add coin reward to embed
+    resultsEmbed.addFields({
+      name: "💰 Rewards",
+      value: `You earned **${formatNumber(
+        coinReward
+      )} atlyss coins** for defeating the wild ${wildDino.name}!`,
+      inline: false,
+    });
+
     // Get updated collection to ensure we have the latest data
     const collection = (await db.get(`dinos_${userId}`)) || {};
     if (collection[userDino.name]) {
