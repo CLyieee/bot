@@ -38,7 +38,7 @@ module.exports = {
     }
 
     // User can beg for coins
-    const amount = Math.floor(Math.random() * 50) + 10; // Random 10 - 60
+    const amount = Math.floor(Math.random() * 5000) + 1000; // Random 10 - 60
 
     // Update database
     await db.add(`cash_${message.author.id}`, amount);

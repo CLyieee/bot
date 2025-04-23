@@ -38,7 +38,7 @@ module.exports = {
     }
 
     // User can claim daily reward
-    const amount = Math.floor(Math.random() * 500) + 100; // Random 100 - 600
+    const amount = Math.floor(Math.random() * 5000) + 10000; // Random 100 - 600
 
     // Update database
     await db.add(`cash_${message.author.id}`, amount);

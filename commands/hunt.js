@@ -8,14 +8,14 @@ const { EmbedBuilder } = require("discord.js");
 
 // Animals with rarity tiers and rewards
 const ANIMALS = [
-  { name: "🐭 Mouse", rarity: "common", value: 5, chance: 30 },
-  { name: "🐰 Rabbit", rarity: "common", value: 10, chance: 25 },
-  { name: "🐿️ Squirrel", rarity: "common", value: 15, chance: 20 },
-  { name: "🦊 Fox", rarity: "uncommon", value: 25, chance: 10 },
-  { name: "🦌 Deer", rarity: "uncommon", value: 35, chance: 7 },
-  { name: "🐺 Wolf", rarity: "rare", value: 50, chance: 5 },
-  { name: "🦁 Lion", rarity: "rare", value: 75, chance: 2 },
-  { name: "🐉 Dragon", rarity: "legendary", value: 100, chance: 1 },
+  { name: "🐭 Mouse", rarity: "common", value: 500, chance: 30 },
+  { name: "🐰 Rabbit", rarity: "common", value: 1000, chance: 25 },
+  { name: "🐿️ Squirrel", rarity: "common", value: 1005, chance: 20 },
+  { name: "🦊 Fox", rarity: "uncommon", value: 2500, chance: 10 },
+  { name: "🦌 Deer", rarity: "uncommon", value: 3500, chance: 7 },
+  { name: "🐺 Wolf", rarity: "rare", value: 5000, chance: 5 },
+  { name: "🦁 Lion", rarity: "rare", value: 7500, chance: 2 },
+  { name: "🐉 Dragon", rarity: "legendary", value: 10000, chance: 1 },
 ];
 
 module.exports = {
@@ -41,7 +41,7 @@ module.exports = {
         .setDescription(
           `You're too tired to hunt again!\nTry again in **${cooldownCheck.timeLeft}**`
         )
-        .setThumbnail("https://i.imgur.com/wuDq3yU.png") // Clock/timer icon
+        
         .setFooter({
           text: "Hunting cooldown is 5 minutes",
           iconURL: message.client.user.displayAvatarURL(),
