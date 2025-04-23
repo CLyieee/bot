@@ -1141,6 +1141,28 @@ const RARITY_EMOJIS = {
   legendary: "🟣",
 };
 
+// Create action buttons for storing or selling caught dinosaur
+function createActionButtons() {
+  const row = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('store')
+        .setLabel('Store Dinosaur')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('🏆'),
+      new ButtonBuilder()
+        .setCustomId('sell')
+        .setLabel('Sell Dinosaur')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('💰')
+    );
+  
+  return row;
+}
+
+// Store the last caught dinosaur for button interactions
+const lastCaught = {};
+
 module.exports = {
   name: "catch",
   description: "Use cryopods to catch ARK dinosaurs",
@@ -1446,18 +1468,23 @@ async function attemptCatch(message, userId, displayName, cryopod, boost) {
   await new Promise((resolve) => setTimeout(resolve, 2000));
 
   if (success) {
+    // Store the caught dinosaur for button interaction
+    lastCaught[userId] = {
+      dinosaur: dinosaur,
+      cryopod: cryopod,
+      messageId: encounterMsg.id,
+      timestamp: Date.now()
+    };
+    
     // Success! Add dinosaur to collection
-    await addDinosaurToCollection(userId, dinosaur);
-
-    // Add value to user's balance
-    await db.add(`cash_${userId}`, dinosaur.value);
-
+    // Don't add to collection immediately, wait for user's choice
+    
     // Create success embed
     const successEmbed = new EmbedBuilder()
       .setColor("#2ecc71") // Green for success
       .setTitle("🎉 Catch Successful!")
       .setDescription(
-        `${displayName} successfully caught **${dinosaur.name}**!\n\nThe **${cryopod.name}** worked perfectly.`
+        `${displayName} successfully caught **${dinosaur.name}**!\n\nThe **${cryopod.name}** worked perfectly.\n\n**Choose what to do with your dinosaur:**`
       )
       .addFields(
         { name: "Dinosaur", value: `${dinosaur.name}`, inline: true },
@@ -1483,11 +1510,6 @@ async function attemptCatch(message, userId, displayName, cryopod, boost) {
     }
 
     successEmbed
-      .addFields({
-        name: "Added to Collection",
-        value: "Use `!dino " + dinosaur.name + "` to view details",
-        inline: false,
-      })
       .setImage(dinosaur.image)
       .setThumbnail(cryopod.image)
       .setFooter({
@@ -1496,7 +1518,49 @@ async function attemptCatch(message, userId, displayName, cryopod, boost) {
       })
       .setTimestamp();
 
-    await encounterMsg.edit({ embeds: [successEmbed] });
+    await encounterMsg.edit({ embeds: [successEmbed], components: [createActionButtons()] });
+    
+    // Set up collector for button interactions
+    const filter = i => (i.customId === 'store' || i.customId === 'sell') && i.user.id === userId;
+    const collector = encounterMsg.createMessageComponentCollector({ filter, time: 60000 });
+    
+    collector.on('collect', async i => {
+      if (i.customId === 'store') {
+        // Add dinosaur to collection
+        await addDinosaurToCollection(userId, dinosaur);
+        
+        await i.update({ 
+          content: `${displayName} stored the **${dinosaur.name}** in their collection!`, 
+          components: [] 
+        });
+      } else if (i.customId === 'sell') {
+        // Add value to user's balance
+        await db.add(`cash_${userId}`, dinosaur.value);
+        
+        await i.update({ 
+          content: `${displayName} sold the **${dinosaur.name}** for **${formatNumber(dinosaur.value)} coins**!`, 
+          components: [] 
+        });
+      }
+      
+      // Remove from lastCaught
+      delete lastCaught[userId];
+    });
+    
+    collector.on('end', async collected => {
+      if (collected.size === 0 && lastCaught[userId]) {
+        // If user didn't respond, store by default
+        await addDinosaurToCollection(userId, dinosaur);
+        
+        await encounterMsg.edit({ 
+          content: `No choice made, the **${dinosaur.name}** was automatically stored in your collection!`,
+          components: []
+        });
+        
+        // Remove from lastCaught
+        delete lastCaught[userId];
+      }
+    });
   } else {
     // Failed catch
 
