@@ -211,6 +211,111 @@ const DINOSAURS = [
       power: 4,
     },
   },
+  {
+    name: "Hesperornis",
+    emoji: "🐧",
+    image: "https://www.dododex.com/media/creature/hesperornis.png",
+    tier: "low",
+    rarity: "common",
+    value: 140,
+    chance: 19,
+    skill: {
+      name: "Fisher",
+      description: "Has a 7% chance to produce organic polymer daily",
+      effect: "polymer_production",
+      power: 7,
+    },
+  },
+  {
+    name: "Pegomastax",
+    emoji: "🦎",
+    image: "https://www.dododex.com/media/creature/pegomastax.png",
+    tier: "low",
+    rarity: "common",
+    value: 85,
+    chance: 25,
+    skill: {
+      name: "Thief",
+      description: "Has a 3% chance to steal extra items when hunting",
+      effect: "steal_bonus",
+      power: 3,
+    },
+  },
+  {
+    name: "Jerboa",
+    emoji: "🐭",
+    image: "https://www.dododex.com/media/creature/jerboa.png",
+    tier: "low",
+    rarity: "common",
+    value: 95,
+    chance: 23,
+    skill: {
+      name: "Weather Warning",
+      description: "Increases weather-based rewards by 4%",
+      effect: "weather_sense",
+      power: 4,
+    },
+  },
+  {
+    name: "Mesopithecus",
+    emoji: "🐒",
+    image: "https://www.dododex.com/media/creature/mesopithecus.png",
+    tier: "low",
+    rarity: "common",
+    value: 105,
+    chance: 21,
+    skill: {
+      name: "Berry Gatherer",
+      description: "Increases berry gathering efficiency by 5%",
+      effect: "berry_gathering",
+      power: 5,
+    },
+  },
+  {
+    name: "Microraptor",
+    emoji: "🐦",
+    image: "https://www.dododex.com/media/creature/microraptor.png",
+    tier: "low",
+    rarity: "common",
+    value: 145,
+    chance: 18,
+    skill: {
+      name: "Surprise Attack",
+      description: "Has a 6% chance to attack first in battles",
+      effect: "first_strike",
+      power: 6,
+    },
+  },
+  {
+    name: "Phiomia",
+    emoji: "🐘",
+    image: "https://www.dododex.com/media/creature/phiomia.png",
+    tier: "low",
+    rarity: "common",
+    value: 115,
+    chance: 21,
+    skill: {
+      name: "Resource Carrier",
+      description: "Increases weight capacity by 8% when gathering",
+      effect: "carry_weight",
+      power: 8,
+    },
+  },
+  {
+    name: "Featherlight",
+    emoji: "✨",
+    image: "https://www.dododex.com/media/creature/featherlight.png",
+    tier: "low",
+    rarity: "common",
+    value: 175,
+    chance: 15,
+    skill: {
+      name: "Light Source",
+      description: "Increases rare item find chance by 3% in dark areas",
+      effect: "light_bonus",
+      power: 3,
+    },
+  },
 
   // Mid tier (Uncommon)
   {
@@ -364,7 +469,6 @@ const DINOSAURS = [
       power: 7,
     },
   },
-  // New uncommon dinosaurs
   {
     name: "Beelzebufo",
     emoji: "🐸",
@@ -407,6 +511,111 @@ const DINOSAURS = [
       name: "Stone Collector",
       description: "Has a 12% chance to find extra stone when gathering",
       effect: "stone_gathering",
+      power: 12,
+    },
+  },
+  {
+    name: "Thylacoleo",
+    emoji: "🦁",
+    image: "https://www.dododex.com/media/creature/thylacoleo.png",
+    tier: "mid",
+    rarity: "uncommon",
+    value: 450,
+    chance: 7.1,
+    skill: {
+      name: "Ambush Hunter",
+      description: "Has a 10% chance to perform critical hits in battle",
+      effect: "critical_strike",
+      power: 10,
+    },
+  },
+  {
+    name: "Pulmonoscorpius",
+    emoji: "🦂",
+    image: "https://www.dododex.com/media/creature/pulmonoscorpius.png",
+    tier: "mid",
+    rarity: "uncommon",
+    value: 360,
+    chance: 8.6,
+    skill: {
+      name: "Venom Sting",
+      description: "Attacks have a 7% chance to poison enemies in battle",
+      effect: "poison_attack",
+      power: 7,
+    },
+  },
+  {
+    name: "Pachyrhinosaurus",
+    emoji: "🦏",
+    image: "https://www.dododex.com/media/creature/pachyrhinosaurus.png",
+    tier: "mid",
+    rarity: "uncommon",
+    value: 380,
+    chance: 8.3,
+    skill: {
+      name: "Defensive Charge",
+      description: "Gives a 9% defense bonus in battles",
+      effect: "battle_defense",
+      power: 9,
+    },
+  },
+  {
+    name: "Kaprosuchus",
+    emoji: "🐊",
+    image: "https://www.dododex.com/media/creature/kaprosuchus.png",
+    tier: "mid",
+    rarity: "uncommon",
+    value: 405,
+    chance: 7.8,
+    skill: {
+      name: "Surprise Attack",
+      description: "Has an 11% chance to attack first in battle",
+      effect: "first_strike",
+      power: 11,
+    },
+  },
+  {
+    name: "Castoroides",
+    emoji: "🦫",
+    image: "https://www.dododex.com/media/creature/castoroides.png",
+    tier: "mid",
+    rarity: "uncommon",
+    value: 495,
+    chance: 6.0,
+    skill: {
+      name: "Wood Harvester",
+      description: "Increases wood gathering by 13%",
+      effect: "wood_gathering",
+      power: 13,
+    },
+  },
+  {
+    name: "Procoptodon",
+    emoji: "🦘",
+    image: "https://www.dododex.com/media/creature/procoptodon.png",
+    tier: "mid",
+    rarity: "uncommon",
+    value: 440,
+    chance: 7.2,
+    skill: {
+      name: "High Jump",
+      description: "Reduces traveling cooldowns by 8%",
+      effect: "travel_cooldown",
+      power: 8,
+    },
+  },
+  {
+    name: "Gallimimus",
+    emoji: "🦖",
+    image: "https://www.dododex.com/media/creature/gallimimus.png",
+    tier: "mid",
+    rarity: "uncommon",
+    value: 350,
+    chance: 8.8,
+    skill: {
+      name: "Speed Demon",
+      description: "Has a 12% chance to avoid attacks in battle",
+      effect: "evasion",
       power: 12,
     },
   },
@@ -548,7 +757,6 @@ const DINOSAURS = [
       power: 14,
     },
   },
-  // New rare dinosaurs
   {
     name: "Snow Owl",
     emoji: "🦉",
@@ -592,6 +800,96 @@ const DINOSAURS = [
       name: "Charging Horn",
       description: "Has a 13% chance to deal double damage in battle",
       effect: "charge_attack",
+      power: 13,
+    },
+  },
+  {
+    name: "Karkinos",
+    emoji: "🦀",
+    image: "https://www.dododex.com/media/creature/karkinos.png",
+    tier: "high",
+    rarity: "rare",
+    value: 980,
+    chance: 2.9,
+    skill: {
+      name: "Crushing Claws",
+      description: "Has a 16% chance to stun opponents in battle",
+      effect: "stun_attack",
+      power: 16,
+    },
+  },
+  {
+    name: "Megalosaurus",
+    emoji: "🦖",
+    image: "https://www.dododex.com/media/creature/megalosaurus.png",
+    tier: "high",
+    rarity: "rare",
+    value: 935,
+    chance: 3.1,
+    skill: {
+      name: "Night Hunter",
+      description: "Gains 18% attack bonus during night hunts",
+      effect: "night_power",
+      power: 18,
+    },
+  },
+  {
+    name: "Gasbags",
+    emoji: "🎈",
+    image: "https://www.dododex.com/media/creature/gasbags.png",
+    tier: "high",
+    rarity: "rare",
+    value: 1050,
+    chance: 2.4,
+    skill: {
+      name: "Floating Transport",
+      description: "Increases inventory capacity by 17% when gathering",
+      effect: "extra_capacity",
+      power: 17,
+    },
+  },
+  {
+    name: "Mantis",
+    emoji: "🦗",
+    image: "https://www.dododex.com/media/creature/mantis.png",
+    tier: "high",
+    rarity: "rare",
+    value: 1080,
+    chance: 2.3,
+    skill: {
+      name: "Tool User",
+      description: "Increases all resource gathering by 15%",
+      effect: "tool_efficiency",
+      power: 15,
+    },
+  },
+  {
+    name: "Thorny Dragon",
+    emoji: "🦎",
+    image: "https://www.dododex.com/media/creature/thornydragon.png",
+    tier: "high",
+    rarity: "rare",
+    value: 1025,
+    chance: 2.6,
+    skill: {
+      name: "Spike Defense",
+      description: "Deals 14% damage back to attackers in battle",
+      effect: "reflect_damage",
+      power: 14,
+    },
+  },
+  {
+    name: "Tapejara",
+    emoji: "🦅",
+    image: "https://www.dododex.com/media/creature/tapejara.png",
+    tier: "high",
+    rarity: "rare",
+    value: 1130,
+    chance: 2.1,
+    skill: {
+      name: "Agile Flier",
+      description: "Has a 13% chance to avoid attacks in battle",
+      effect: "aerial_dodge",
       power: 13,
     },
   },
@@ -779,7 +1077,6 @@ const DINOSAURS = [
       power: 30,
     },
   },
-  // New legendary dinosaurs from Dododex
   {
     name: "Shadow Magmasaur",
     emoji: "🌋",
@@ -1020,7 +1317,6 @@ const DINOSAURS = [
       power: 15,
     },
   },
-  // New legendary dinosaurs
   {
     name: "Master Controller",
     emoji: "🧠",
@@ -1065,6 +1361,307 @@ const DINOSAURS = [
         "Gains immunity to negative effects and 20% damage reflection",
       effect: "creator_aura",
       power: 20,
+    },
+  },
+  {
+    name: "Alpha Rex",
+    emoji: "☠️",
+    image: "https://www.dododex.com/media/creature/rex-alpha.png",
+    tier: "boss",
+    rarity: "legendary",
+    value: 9800,
+    chance: 0.23,
+    skill: {
+      name: "Alpha Dominance",
+      description: "Increases all damage dealt by 27% in battles",
+      effect: "alpha_damage",
+      power: 27,
+    },
+  },
+  {
+    name: "Enraged Triceratops",
+    emoji: "🔥",
+    image: "https://www.dododex.com/media/creature/triceratops.png",
+    tier: "boss",
+    rarity: "legendary",
+    value: 8500,
+    chance: 0.27,
+    skill: {
+      name: "Piercing Charge",
+      description: "Has a 20% chance to ignore enemy defenses",
+      effect: "armor_pierce",
+      power: 20,
+    },
+  },
+  {
+    name: "Broodmother",
+    emoji: "🕷️",
+    image: "https://www.dododex.com/media/creature/broodmother.png",
+    tier: "boss",
+    rarity: "legendary",
+    value: 16800,
+    chance: 0.06,
+    skill: {
+      name: "Spider Minions",
+      description: "Summons allies with 19% chance in battle",
+      effect: "summon_minions",
+      power: 19,
+    },
+  },
+  {
+    name: "Megapithecus",
+    emoji: "🦍",
+    image: "https://www.dododex.com/media/creature/megapithecus.png",
+    tier: "boss",
+    rarity: "legendary",
+    value: 16200,
+    chance: 0.07,
+    skill: {
+      name: "Boulder Throw",
+      description: "Deals 28% area damage to all opponents",
+      effect: "area_attack",
+      power: 28,
+    },
+  },
+  {
+    name: "Dragon",
+    emoji: "🐲",
+    image: "https://www.dododex.com/media/creature/dragon.png",
+    tier: "boss",
+    rarity: "legendary",
+    value: 17800,
+    chance: 0.05,
+    skill: {
+      name: "Fire Breath",
+      description: "Deals 30% damage over time to enemies",
+      effect: "fire_damage",
+      power: 30,
+    },
+  },
+  {
+    name: "Crystal Wyvern",
+    emoji: "💎",
+    image: "https://www.dododex.com/media/creature/crystal-wyvern.png",
+    tier: "boss",
+    rarity: "legendary",
+    value: 8900,
+    chance: 0.26,
+    skill: {
+      name: "Crystal Beam",
+      description: "Has a 21% chance to stun opponents for one turn",
+      effect: "crystal_stun",
+      power: 21,
+    },
+  },
+  {
+    name: "Corrupted Giganotosaurus",
+    emoji: "☢️",
+    image:
+      "https://www.dododex.com/media/creature/corrupted-giganotosaurus.png",
+    tier: "boss",
+    rarity: "legendary",
+    value: 16000,
+    chance: 0.075,
+    skill: {
+      name: "Corruption",
+      description: "Reduces enemy healing effects by 25% in battle",
+      effect: "healing_reduction",
+      power: 25,
+    },
+  },
+  {
+    name: "Snow Owl",
+    emoji: "🦉",
+    image: "https://www.dododex.com/media/creature/snowowl.png",
+    tier: "high",
+    rarity: "rare",
+    value: 1230,
+    chance: 1.9,
+    skill: {
+      name: "Thermal Vision",
+      description: "Increases chance to find hidden items by 16%",
+      effect: "detect_hidden",
+      power: 16,
+    },
+  },
+  {
+    name: "Velonasaur",
+    emoji: "🦖",
+    image: "https://www.dododex.com/media/creature/velonasaur.png",
+    tier: "high",
+    rarity: "rare",
+    value: 1190,
+    chance: 2.0,
+    skill: {
+      name: "Quill Shot",
+      description: "Deals 15% damage to all enemies in battle",
+      effect: "ranged_attack",
+      power: 15,
+    },
+  },
+  {
+    name: "Bloodstalker",
+    emoji: "🕸️",
+    image: "https://www.dododex.com/media/creature/bloodstalker.png",
+    tier: "high",
+    rarity: "rare",
+    value: 1340,
+    chance: 1.75,
+    skill: {
+      name: "Web Snare",
+      description: "Has a 14% chance to immobilize opponents",
+      effect: "immobilize",
+      power: 14,
+    },
+  },
+  {
+    name: "Megachelon",
+    emoji: "🐢",
+    image: "https://www.dododex.com/media/creature/megachelon.png",
+    tier: "high",
+    rarity: "rare",
+    value: 1380,
+    chance: 1.6,
+    skill: {
+      name: "Living Platform",
+      description: "Increases gathering yield by 17% for team members",
+      effect: "team_gathering",
+      power: 17,
+    },
+  },
+  {
+    name: "X-Yutyrannus",
+    emoji: "🧬",
+    image: "https://www.dododex.com/media/creature/yutyrannus-x.png",
+    tier: "boss",
+    rarity: "legendary",
+    value: 8400,
+    chance: 0.28,
+    skill: {
+      name: "X-Mutation",
+      description: "Boosts team attack by 23% in battles",
+      effect: "team_attack",
+      power: 23,
+    },
+  },
+  {
+    name: "Shadowmane",
+    emoji: "🦁",
+    image: "https://www.dododex.com/media/creature/shadowmane.png",
+    tier: "high",
+    rarity: "rare",
+    value: 1450,
+    chance: 1.55,
+    skill: {
+      name: "Shadow Stalker",
+      description: "Has a 16% chance to turn invisible and avoid damage",
+      effect: "invisibility",
+      power: 16,
+    },
+  },
+  {
+    name: "Maewing",
+    emoji: "🦆",
+    image: "https://www.dododex.com/media/creature/maewing.png",
+    tier: "mid",
+    rarity: "uncommon",
+    value: 520,
+    chance: 5.5,
+    skill: {
+      name: "Nurturing",
+      description: "Increases XP gain from all sources by 7%",
+      effect: "xp_boost",
+      power: 7,
+    },
+  },
+  {
+    name: "Noglin",
+    emoji: "🧠",
+    image: "https://www.dododex.com/media/creature/noglin.png",
+    tier: "boss",
+    rarity: "legendary",
+    value: 7800,
+    chance: 0.35,
+    skill: {
+      name: "Mind Control",
+      description: "Has a 12% chance to take control of enemy attacks",
+      effect: "mind_control",
+      power: 12,
+    },
+  },
+  {
+    name: "Amargasaurus",
+    emoji: "🦕",
+    image: "https://www.dododex.com/media/creature/amargasaurus.png",
+    tier: "high",
+    rarity: "rare",
+    value: 1290,
+    chance: 1.8,
+    skill: {
+      name: "Sail Strike",
+      description: "Has a 15% chance to deal bonus elemental damage",
+      effect: "elemental_damage",
+      power: 15,
+    },
+  },
+  {
+    name: "Dinopithecus",
+    emoji: "🐒",
+    image: "https://www.dododex.com/media/creature/dinopithecus.png",
+    tier: "mid",
+    rarity: "uncommon",
+    value: 480,
+    chance: 6.4,
+    skill: {
+      name: "Primate Pack",
+      description: "Increases team coordination in battles by 9%",
+      effect: "team_coordination",
+      power: 9,
+    },
+  },
+  {
+    name: "Andrewsarchus",
+    emoji: "🐗",
+    image: "https://www.dododex.com/media/creature/andrewsarchus.png",
+    tier: "high",
+    rarity: "rare",
+    value: 1320,
+    chance: 1.7,
+    skill: {
+      name: "Saddle Gunner",
+      description: "Has a 15% chance for bonus ranged damage",
+      effect: "ranged_bonus",
+      power: 15,
+    },
+  },
+  {
+    name: "Fenrir",
+    emoji: "🐺",
+    image: "https://www.dododex.com/media/creature/fenrir.png",
+    tier: "boss",
+    rarity: "legendary",
+    value: 13500,
+    chance: 0.13,
+    skill: {
+      name: "Frost Bite",
+      description: "Has a 24% chance to freeze enemies in battle",
+      effect: "frost_attack",
+      power: 24,
+    },
+  },
+  {
+    name: "Fjordhawk",
+    emoji: "🦅",
+    image: "https://www.dododex.com/media/creature/fjordhawk.png",
+    tier: "low",
+    rarity: "common",
+    value: 160,
+    chance: 16,
+    skill: {
+      name: "Item Recovery",
+      description: "Has a 6% chance to recover lost items when defeated",
+      effect: "item_recovery",
+      power: 6,
     },
   },
 ];
@@ -1143,20 +1740,19 @@ const RARITY_EMOJIS = {
 
 // Create action buttons for storing or selling caught dinosaur
 function createActionButtons() {
-  const row = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId('store')
-        .setLabel('Store Dinosaur')
-        .setStyle(ButtonStyle.Primary)
-        .setEmoji('🏆'),
-      new ButtonBuilder()
-        .setCustomId('sell')
-        .setLabel('Sell Dinosaur')
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji('💰')
-    );
-  
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("store")
+      .setLabel("Store Dinosaur")
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji("🏆"),
+    new ButtonBuilder()
+      .setCustomId("sell")
+      .setLabel("Sell Dinosaur")
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji("💰")
+  );
+
   return row;
 }
 
@@ -1473,12 +2069,12 @@ async function attemptCatch(message, userId, displayName, cryopod, boost) {
       dinosaur: dinosaur,
       cryopod: cryopod,
       messageId: encounterMsg.id,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
-    
+
     // Success! Add dinosaur to collection
     // Don't add to collection immediately, wait for user's choice
-    
+
     // Create success embed
     const successEmbed = new EmbedBuilder()
       .setColor("#2ecc71") // Green for success
@@ -1518,45 +2114,54 @@ async function attemptCatch(message, userId, displayName, cryopod, boost) {
       })
       .setTimestamp();
 
-    await encounterMsg.edit({ embeds: [successEmbed], components: [createActionButtons()] });
-    
+    await encounterMsg.edit({
+      embeds: [successEmbed],
+      components: [createActionButtons()],
+    });
+
     // Set up collector for button interactions
-    const filter = i => (i.customId === 'store' || i.customId === 'sell') && i.user.id === userId;
-    const collector = encounterMsg.createMessageComponentCollector({ filter, time: 60000 });
-    
-    collector.on('collect', async i => {
-      if (i.customId === 'store') {
+    const filter = (i) =>
+      (i.customId === "store" || i.customId === "sell") && i.user.id === userId;
+    const collector = encounterMsg.createMessageComponentCollector({
+      filter,
+      time: 60000,
+    });
+
+    collector.on("collect", async (i) => {
+      if (i.customId === "store") {
         // Add dinosaur to collection
         await addDinosaurToCollection(userId, dinosaur);
-        
-        await i.update({ 
-          content: `${displayName} stored the **${dinosaur.name}** in their collection!`, 
-          components: [] 
+
+        await i.update({
+          content: `${displayName} stored the **${dinosaur.name}** in their collection!`,
+          components: [],
         });
-      } else if (i.customId === 'sell') {
+      } else if (i.customId === "sell") {
         // Add value to user's balance
         await db.add(`cash_${userId}`, dinosaur.value);
-        
-        await i.update({ 
-          content: `${displayName} sold the **${dinosaur.name}** for **${formatNumber(dinosaur.value)} coins**!`, 
-          components: [] 
+
+        await i.update({
+          content: `${displayName} sold the **${
+            dinosaur.name
+          }** for **${formatNumber(dinosaur.value)} coins**!`,
+          components: [],
         });
       }
-      
+
       // Remove from lastCaught
       delete lastCaught[userId];
     });
-    
-    collector.on('end', async collected => {
+
+    collector.on("end", async (collected) => {
       if (collected.size === 0 && lastCaught[userId]) {
         // If user didn't respond, store by default
         await addDinosaurToCollection(userId, dinosaur);
-        
-        await encounterMsg.edit({ 
+
+        await encounterMsg.edit({
           content: `No choice made, the **${dinosaur.name}** was automatically stored in your collection!`,
-          components: []
+          components: [],
         });
-        
+
         // Remove from lastCaught
         delete lastCaught[userId];
       }
