@@ -198,7 +198,7 @@ const SHOP_ITEMS = [
     name: "Replicator",
     emoji: "🔷",
     category: "luxury-items",
-    price: 25000,
+    price: 50000,
     description:
       "Create one copy of any dinosaur you already own (cooldown: 7 days)",
     effect: {
@@ -212,7 +212,7 @@ const SHOP_ITEMS = [
     name: "Ascension Terminal",
     emoji: "⚡",
     category: "luxury-items",
-    price: 30000,
+    price: 100000,
     description:
       "Ascend one dinosaur, permanently adding +3 levels and 20% to all stats",
     effect: {
@@ -228,7 +228,7 @@ const SHOP_ITEMS = [
     name: "Genesis Device",
     emoji: "🧬",
     category: "luxury-items",
-    price: 75000,
+    price: 255000,
     description:
       "Create a new dinosaur with random stats and guaranteed legendary rarity",
     effect: {
@@ -241,7 +241,7 @@ const SHOP_ITEMS = [
     name: "Artifact of Power",
     emoji: "✨",
     category: "luxury-items",
-    price: 75000,
+    price: 300000,
     description:
       "Upgrade any dinosaur's skill power to maximum and add a secondary skill effect",
     effect: {
