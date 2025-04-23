@@ -2320,7 +2320,7 @@ async function processCryopodThrow(message, encounterData, displayName) {
 async function startWildBattle(message, encounterData, displayName) {
   const { userId, dinosaur } = encounterData;
 
-  // Get user's best dinosaur for battle
+  // Get user's dinosaur collection
   const userDinos = (await db.get(`dinos_${userId}`)) || {};
 
   if (Object.keys(userDinos).length === 0) {
@@ -2360,43 +2360,241 @@ async function startWildBattle(message, encounterData, displayName) {
     return;
   }
 
-  // Find user's best dinosaur
-  const userDino = findBestDino(userDinos);
-
-  // Create battle preparation embed
-  const battlePrepEmbed = new EmbedBuilder()
+  // Create a selection menu for dinosaurs
+  const selectEmbed = new EmbedBuilder()
     .setColor(RARITY_COLORS[dinosaur.rarity])
-    .setTitle("⚔️ Wild Dinosaur Battle!")
+    .setTitle("🦖 Choose Your Dinosaur")
     .setDescription(
-      `${displayName} sent out **${userDino.name}** to battle the wild **${dinosaur.name}**!`
+      `${displayName}, select a dinosaur to battle the wild **${dinosaur.name}**!`
     )
-    .addFields(
-      {
-        name: `Your ${userDino.emoji} ${userDino.name}`,
-        value: `Rarity: ${RARITY_EMOJIS[userDino.rarity]} ${
-          userDino.rarity
-        }\nTier: ${userDino.tier.toUpperCase()}`,
-        inline: true,
-      },
-      {
-        name: `Wild ${dinosaur.emoji} ${dinosaur.name}`,
-        value: `Rarity: ${RARITY_EMOJIS[dinosaur.rarity]} ${
-          dinosaur.rarity
-        }\nTier: ${dinosaur.tier.toUpperCase()}`,
-        inline: true,
+    .setImage(dinosaur.image)
+    .setFooter({
+      text: "You have 30 seconds to select a dinosaur",
+      iconURL: message.client.user.displayAvatarURL(),
+    })
+    .setTimestamp();
+
+  // Get top 5 dinosaurs, sorted by tier and power
+  const sortedDinos = Object.entries(userDinos)
+    .map(([name, data]) => ({ name, ...data }))
+    .sort((a, b) => {
+      // Sort by tier (boss > high > mid > low)
+      const tierOrder = { boss: 3, high: 2, mid: 1, low: 0 };
+      const tierDiff = tierOrder[b.tier || "low"] - tierOrder[a.tier || "low"];
+      if (tierDiff !== 0) return tierDiff;
+
+      // Then sort by level if tier is the same
+      const levelDiff = (b.level || 1) - (a.level || 1);
+      if (levelDiff !== 0) return levelDiff;
+
+      // Then sort by skill power if level is the same
+      const powerA = a.skill?.power || 0;
+      const powerB = b.skill?.power || 0;
+      return powerB - powerA;
+    })
+    .slice(0, 5); // Get top 5
+
+  // Create buttons for each dinosaur
+  const dinoButtons = [];
+  const rows = [];
+
+  sortedDinos.forEach((dino, idx) => {
+    const button = new ButtonBuilder()
+      .setCustomId(`select_dino_${idx}`)
+      .setLabel(`${dino.name} (Lvl ${dino.level || 1})`)
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji(dino.emoji);
+
+    dinoButtons.push(button);
+
+    // Add details to embed
+    selectEmbed.addFields({
+      name: `${idx + 1}. ${dino.emoji} ${dino.name} (Lvl ${dino.level || 1})`,
+      value: `**Tier:** ${
+        dino.tier.charAt(0).toUpperCase() + dino.tier.slice(1)
       }
-    )
-    .setThumbnail(userDino.image);
+**Rarity:** ${dino.rarity.charAt(0).toUpperCase() + dino.rarity.slice(1)}
+**Skill:** ${dino.skill ? dino.skill.name : "None"}`,
+      inline: true,
+    });
+  });
 
-  await message.edit({ embeds: [battlePrepEmbed], components: [] });
+  // Add "Use Best Dinosaur" button
+  const useBestButton = new ButtonBuilder()
+    .setCustomId(`use_best_dino`)
+    .setLabel(`Use Best Dinosaur`)
+    .setStyle(ButtonStyle.Success)
+    .setEmoji("⭐");
 
-  // Create modified copies of dinosaurs for battle
-  const wildDinoStats = createWildDinoStats(dinosaur);
-  const userDinoStats = createUserDinoStats(userDino);
+  dinoButtons.push(useBestButton);
 
-  // Wait 2 seconds before starting battle
-  await new Promise((resolve) => setTimeout(resolve, 2000));
+  // Split buttons into rows (max 3 buttons per row)
+  for (let i = 0; i < dinoButtons.length; i += 3) {
+    const row = new ActionRowBuilder().addComponents(
+      dinoButtons.slice(i, Math.min(i + 3, dinoButtons.length))
+    );
+    rows.push(row);
+  }
 
+  // Send selection message
+  await message.edit({
+    embeds: [selectEmbed],
+    components: rows,
+  });
+
+  // Create collector for dinosaur selection
+  const filter = (i) =>
+    (i.customId.startsWith("select_dino_") || i.customId === "use_best_dino") &&
+    i.user.id === userId;
+
+  const collector = message.createMessageComponentCollector({
+    filter,
+    time: 30000, // 30 seconds to select
+  });
+
+  collector.on("collect", async (i) => {
+    collector.stop();
+
+    let selectedDino;
+    if (i.customId === "use_best_dino") {
+      // Find the best dinosaur
+      selectedDino = findBestDino(userDinos);
+    } else {
+      // Extract the index from the button ID
+      const selectedIndex = parseInt(i.customId.split("_")[2]);
+      if (
+        !isNaN(selectedIndex) &&
+        selectedIndex >= 0 &&
+        selectedIndex < sortedDinos.length
+      ) {
+        selectedDino = sortedDinos[selectedIndex];
+      } else {
+        // Fallback to the best dinosaur if something goes wrong
+        selectedDino = findBestDino(userDinos);
+      }
+    }
+
+    // Create battle preparation embed
+    const battlePrepEmbed = new EmbedBuilder()
+      .setColor(RARITY_COLORS[dinosaur.rarity])
+      .setTitle("⚔️ Wild Dinosaur Battle!")
+      .setDescription(
+        `${displayName} sent out **${selectedDino.name}** to battle the wild **${dinosaur.name}**!`
+      )
+      .addFields(
+        {
+          name: `Your ${selectedDino.emoji} ${selectedDino.name} (Lvl ${
+            selectedDino.level || 1
+          })`,
+          value: `Rarity: ${RARITY_EMOJIS[selectedDino.rarity]} ${
+            selectedDino.rarity
+          }
+Tier: ${selectedDino.tier.toUpperCase()}
+${selectedDino.skill ? `Skill: ${selectedDino.skill.name}` : ""}`,
+          inline: true,
+        },
+        {
+          name: `Wild ${dinosaur.emoji} ${dinosaur.name}`,
+          value: `Rarity: ${RARITY_EMOJIS[dinosaur.rarity]} ${dinosaur.rarity}
+Tier: ${dinosaur.tier.toUpperCase()}
+${dinosaur.skill ? `Skill: ${dinosaur.skill.name}` : ""}`,
+          inline: true,
+        }
+      )
+      .setThumbnail(selectedDino.image || "https://i.imgur.com/ZrJnNDq.png");
+
+    await i.update({ embeds: [battlePrepEmbed], components: [] });
+
+    // Wait 2 seconds before starting battle
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    // Create modified copies of dinosaurs for battle
+    const wildDinoStats = createWildDinoStats(dinosaur);
+    const userDinoStats = createUserDinoStats(selectedDino);
+
+    // Execute battle
+    await executeBattle(
+      message,
+      selectedDino,
+      dinosaur,
+      userDinoStats,
+      wildDinoStats,
+      encounterData,
+      displayName
+    );
+  });
+
+  // Handle selection timeout
+  collector.on("end", async (collected, reason) => {
+    if (reason === "time" && collected.size === 0) {
+      // If no selection was made, use the best dinosaur
+      const bestDino = findBestDino(userDinos);
+
+      await message.edit({
+        content: `No selection made in time. Using your best dinosaur: **${bestDino.name}**!`,
+        components: [],
+      });
+
+      // Create battle preparation embed
+      const battlePrepEmbed = new EmbedBuilder()
+        .setColor(RARITY_COLORS[dinosaur.rarity])
+        .setTitle("⚔️ Wild Dinosaur Battle!")
+        .setDescription(
+          `${displayName} sent out **${bestDino.name}** to battle the wild **${dinosaur.name}**!`
+        )
+        .addFields(
+          {
+            name: `Your ${bestDino.emoji} ${bestDino.name} (Lvl ${
+              bestDino.level || 1
+            })`,
+            value: `Rarity: ${RARITY_EMOJIS[bestDino.rarity]} ${bestDino.rarity}
+Tier: ${bestDino.tier.toUpperCase()}
+${bestDino.skill ? `Skill: ${bestDino.skill.name}` : ""}`,
+            inline: true,
+          },
+          {
+            name: `Wild ${dinosaur.emoji} ${dinosaur.name}`,
+            value: `Rarity: ${RARITY_EMOJIS[dinosaur.rarity]} ${dinosaur.rarity}
+Tier: ${dinosaur.tier.toUpperCase()}
+${dinosaur.skill ? `Skill: ${dinosaur.skill.name}` : ""}`,
+            inline: true,
+          }
+        )
+        .setThumbnail(bestDino.image || "https://i.imgur.com/ZrJnNDq.png");
+
+      await message.edit({ embeds: [battlePrepEmbed], components: [] });
+
+      // Wait 2 seconds before starting battle
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // Create modified copies of dinosaurs for battle
+      const wildDinoStats = createWildDinoStats(dinosaur);
+      const userDinoStats = createUserDinoStats(bestDino);
+
+      // Execute battle
+      await executeBattle(
+        message,
+        bestDino,
+        dinosaur,
+        userDinoStats,
+        wildDinoStats,
+        encounterData,
+        displayName
+      );
+    }
+  });
+}
+
+// Execute the battle between user's dinosaur and wild dinosaur
+async function executeBattle(
+  message,
+  userDino,
+  wildDino,
+  userDinoStats,
+  wildDinoStats,
+  encounterData,
+  displayName
+) {
   // Simplified battle loop
   let battleTurn = 0;
   let battleLogs = [];
@@ -2411,13 +2609,27 @@ async function startWildBattle(message, encounterData, displayName) {
       // User attacking wild dino
       const damage = calculateDamage(userDinoStats, wildDinoStats);
       wildDinoStats.hp -= damage;
-      battleLogs.push(
-        `${userDino.emoji} ${userDino.name} attacks for ${damage} damage!`
-      );
+
+      // Check for critical hit (15% chance)
+      const isCritical = Math.random() < 0.15;
+      if (isCritical) {
+        battleLogs.push(
+          `💥 **CRITICAL HIT!** ${userDino.emoji} ${userDino.name} attacks for ${damage} damage!`
+        );
+      } else {
+        battleLogs.push(
+          `${userDino.emoji} ${userDino.name} attacks for ${damage} damage!`
+        );
+      }
+
+      // Check if user has a skill and add flavor text
+      if (userDino.skill && Math.random() < 0.3) {
+        battleLogs.push(`✨ ${userDino.name} used ${userDino.skill.name}!`);
+      }
 
       if (wildDinoStats.hp <= 0) {
         battleLogs.push(
-          `Wild ${dinosaur.emoji} ${dinosaur.name} was defeated!`
+          `Wild ${wildDino.emoji} ${wildDino.name} was defeated!`
         );
         battleOver = true;
       }
@@ -2425,9 +2637,25 @@ async function startWildBattle(message, encounterData, displayName) {
       // Wild dino attacking user
       const damage = calculateDamage(wildDinoStats, userDinoStats);
       userDinoStats.hp -= damage;
-      battleLogs.push(
-        `Wild ${dinosaur.emoji} ${dinosaur.name} attacks for ${damage} damage!`
-      );
+
+      // Check for critical hit (10% chance for wild dino)
+      const isCritical = Math.random() < 0.1;
+      if (isCritical) {
+        battleLogs.push(
+          `💥 **CRITICAL HIT!** Wild ${wildDino.emoji} ${wildDino.name} attacks for ${damage} damage!`
+        );
+      } else {
+        battleLogs.push(
+          `Wild ${wildDino.emoji} ${wildDino.name} attacks for ${damage} damage!`
+        );
+      }
+
+      // Check if wild dino has a skill and add flavor text
+      if (wildDino.skill && Math.random() < 0.2) {
+        battleLogs.push(
+          `❗ Wild ${wildDino.name} used ${wildDino.skill.name}!`
+        );
+      }
 
       if (userDinoStats.hp <= 0) {
         battleLogs.push(`${userDino.emoji} ${userDino.name} was defeated!`);
@@ -2435,23 +2663,29 @@ async function startWildBattle(message, encounterData, displayName) {
       }
     }
 
-    // Update battle status
+    // Update battle status with improved UI
     const battleEmbed = new EmbedBuilder()
       .setColor("#ff9900")
       .setTitle(`⚔️ Battle Turn ${battleTurn}`)
       .addFields(
         {
-          name: `Your ${userDino.emoji} ${userDino.name}`,
+          name: `Your ${userDino.emoji} ${userDino.name} (Lvl ${
+            userDino.level || 1
+          })`,
           value: `HP: ${createHpBar(userDinoStats.hp, userDinoStats.maxHp)} ${
             userDinoStats.hp
-          }/${userDinoStats.maxHp}`,
+          }/${userDinoStats.maxHp}
+Attack: ⚔️ ${userDinoStats.attack}
+Defense: 🛡️ ${userDinoStats.defense}`,
           inline: true,
         },
         {
-          name: `Wild ${dinosaur.emoji} ${dinosaur.name}`,
+          name: `Wild ${wildDino.emoji} ${wildDino.name}`,
           value: `HP: ${createHpBar(wildDinoStats.hp, wildDinoStats.maxHp)} ${
             wildDinoStats.hp
-          }/${wildDinoStats.maxHp}`,
+          }/${wildDinoStats.maxHp}
+Attack: ⚔️ ${wildDinoStats.attack}
+Defense: 🛡️ ${wildDinoStats.defense}`,
           inline: true,
         },
         {
@@ -2460,7 +2694,7 @@ async function startWildBattle(message, encounterData, displayName) {
           inline: false,
         }
       )
-      .setImage(dinosaur.image);
+      .setImage(wildDino.image);
 
     await message.edit({ embeds: [battleEmbed] });
 
@@ -2475,27 +2709,73 @@ async function startWildBattle(message, encounterData, displayName) {
   encounterData.battled = true;
   encounterData.weakened = battleWon;
 
-  // Create battle results embed
+  // Create battle results embed with improved UI
   const resultsEmbed = new EmbedBuilder()
     .setColor(battleWon ? "#2ecc71" : "#e74c3c")
     .setTitle(battleWon ? "🎉 Battle Won!" : "😓 Battle Lost!")
     .setDescription(
       battleWon
-        ? `${displayName}'s ${userDino.emoji} ${userDino.name} defeated the wild ${dinosaur.emoji} ${dinosaur.name}!\nThe wild dinosaur was weakened, making it easier to catch!`
-        : `The wild ${dinosaur.emoji} ${dinosaur.name} was too strong!\nYou can still try to catch it, but it won't be weakened.`
+        ? `${displayName}'s ${userDino.emoji} ${userDino.name} defeated the wild ${wildDino.emoji} ${wildDino.name}!\nThe wild dinosaur was weakened, making it **75% easier to catch**!`
+        : `The wild ${wildDino.emoji} ${wildDino.name} was too strong!\nYou can still try to catch it, but it won't be weakened.`
     )
     .addFields({
       name: "Battle Result",
       value: battleWon
-        ? "The wild dinosaur is weakened and easier to catch now!"
-        : "The wild dinosaur is still at full strength!",
+        ? `✅ Victory! The wild dinosaur is weakened and easier to catch now!
+Catch chance increase: +75% (maxed at 95%)`
+        : `❌ Defeat! The wild dinosaur is still at full strength!
+Better luck next time!`,
       inline: false,
     })
-    .setImage(dinosaur.image)
+    .setImage(wildDino.image)
     .setFooter({
       text: "Now's your chance to catch it!",
       iconURL: message.client.user.displayAvatarURL(),
     });
+
+  // Add XP gain if battle was won
+  if (battleWon) {
+    // Get updated collection to ensure we have the latest data
+    const collection = (await db.get(`dinos_${userId}`)) || {};
+    if (collection[userDino.name]) {
+      // Initialize XP if not exists
+      if (!collection[userDino.name].xp) collection[userDino.name].xp = 0;
+
+      // Add random XP between 5-15
+      const xpGain = Math.floor(Math.random() * 11) + 5;
+      collection[userDino.name].xp += xpGain;
+
+      // Check for level up (every 100 XP)
+      const oldLevel = collection[userDino.name].level || 1;
+      const newXpTotal = collection[userDino.name].xp;
+      const newLevel = Math.floor(newXpTotal / 100) + 1;
+
+      if (newLevel > oldLevel) {
+        collection[userDino.name].level = newLevel;
+
+        // Add level up information to the embed
+        resultsEmbed.addFields({
+          name: "🎆 Level Up!",
+          value: `${userDino.emoji} ${userDino.name} gained ${xpGain} XP and leveled up to **Level ${newLevel}**!`,
+          inline: false,
+        });
+      } else {
+        // Just add XP information
+        resultsEmbed.addFields({
+          name: "Experience Gained",
+          value: `${userDino.emoji} ${
+            userDino.name
+          } gained ${xpGain} XP! (${newXpTotal}/${
+            newLevel * 100
+          } XP to next level)`,
+          inline: false,
+        });
+      }
+
+      // Save updated collection
+      await db.set(`dinos_${userId}`, collection);
+    }
+  }
 
   await message.edit({
     embeds: [resultsEmbed],
@@ -2725,4 +3005,46 @@ function createHpBar(currentHp, maxHp) {
   hpBar += "⬜".repeat(5 - fullBlocks);
 
   return hpBar;
+}
+
+// Add dinosaur to user's collection
+async function addDinosaurToCollection(userId, dinosaur) {
+  // Get user's dinosaur collection
+  const collection = (await db.get(`dinos_${userId}`)) || {};
+
+  // Calculate base stats based on tier
+  const tierStats = {
+    low: { hp: 100, attack: 10, defense: 5 },
+    mid: { hp: 150, attack: 15, defense: 10 },
+    high: { hp: 200, attack: 20, defense: 15 },
+    boss: { hp: 250, attack: 25, defense: 20 },
+  };
+  const baseStats = tierStats[dinosaur.tier];
+
+  // If dinosaur already exists in collection, increment count
+  if (collection[dinosaur.name]) {
+    collection[dinosaur.name].count =
+      (collection[dinosaur.name].count || 1) + 1;
+  } else {
+    // Otherwise add new dinosaur to collection
+    collection[dinosaur.name] = {
+      emoji: dinosaur.emoji,
+      image: dinosaur.image,
+      tier: dinosaur.tier,
+      rarity: dinosaur.rarity,
+      value: dinosaur.value,
+      count: 1,
+      level: 1,
+      stats: { ...baseStats },
+      baseStats: { ...baseStats },
+    };
+
+    // Add skill if dinosaur has one
+    if (dinosaur.skill) {
+      collection[dinosaur.name].skill = { ...dinosaur.skill };
+    }
+  }
+
+  // Save updated collection
+  await db.set(`dinos_${userId}`, collection);
 }
