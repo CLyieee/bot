@@ -2028,16 +2028,12 @@ async function attemptCatch(message, userId, displayName, cryopod, boost) {
   // Calculate catch chance
   const catchChance = calculateCatchChance(cryopod, boost, dinosaur, userId);
 
-  // Determine if catch is successful
-  const roll = Math.random();
-  const success = roll <= catchChance;
-
   // Create initial encounter embed
   const encounterEmbed = new EmbedBuilder()
     .setColor(RARITY_COLORS[dinosaur.rarity])
-    .setTitle("🦖 Wild Dinosaur Encounter!")
+    .setTitle("🦖 Wild Dinosaur Appeared!")
     .setDescription(
-      `${displayName} encountered a wild **${dinosaur.name}**!\n\nPreparing **${cryopod.name}**...`
+      `A wild **${dinosaur.name}** appeared!\n\nWhat will ${displayName} do?`
     )
     .addFields(
       { name: "Dinosaur", value: `${dinosaur.name}`, inline: true },
@@ -2046,41 +2042,150 @@ async function attemptCatch(message, userId, displayName, cryopod, boost) {
         value: `${RARITY_EMOJIS[dinosaur.rarity]} ${dinosaur.rarity}`,
         inline: true,
       },
-      { name: "Cryopod", value: `${cryopod.name}`, inline: true }
+      {
+        name: "Catch Difficulty",
+        value: getCatchDifficultyBar(catchChance),
+        inline: false,
+      }
     )
     .setImage(dinosaur.image)
-    .setThumbnail(cryopod.image)
     .setFooter({
       text: boost
         ? `Using ${boost.name} for better chances!`
-        : "Good luck with your catch!",
+        : "Choose your action!",
       iconURL: message.client.user.displayAvatarURL(),
     })
     .setTimestamp();
 
-  const encounterMsg = await message.channel.send({ embeds: [encounterEmbed] });
+  // Create action buttons - Catch or Battle
+  const actionRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("throw_cryopod")
+      .setLabel(`Throw ${cryopod.name}`)
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji("🔵"),
+    new ButtonBuilder()
+      .setCustomId("battle")
+      .setLabel("Battle")
+      .setStyle(ButtonStyle.Danger)
+      .setEmoji("⚔️")
+  );
 
-  // Wait 2 seconds for suspense
+  const encounterMsg = await message.channel.send({
+    embeds: [encounterEmbed],
+    components: [actionRow],
+  });
+
+  // Store encounter data
+  const encounterId = `${userId}-${Date.now()}`;
+  const encounterData = {
+    userId,
+    dinosaur,
+    cryopod,
+    boost,
+    catchChance,
+    battled: false,
+    weakened: false,
+    messageId: encounterMsg.id,
+  };
+
+  // Set up collector for button interactions
+  const filter = (i) =>
+    (i.customId === "throw_cryopod" || i.customId === "battle") &&
+    i.user.id === userId;
+
+  const collector = encounterMsg.createMessageComponentCollector({
+    filter,
+    time: 60000, // 1 minute to decide
+  });
+
+  collector.on("collect", async (i) => {
+    if (i.customId === "throw_cryopod") {
+      // User chose to throw the cryopod immediately
+      collector.stop();
+      await processCryopodThrow(encounterMsg, encounterData, displayName);
+    } else if (i.customId === "battle") {
+      // User chose to battle first
+      collector.stop();
+      await startWildBattle(encounterMsg, encounterData, displayName);
+    }
+  });
+
+  // If no choice is made, default to throwing the cryopod
+  collector.on("end", async (collected) => {
+    if (collected.size === 0) {
+      await processCryopodThrow(encounterMsg, encounterData, displayName);
+    }
+  });
+}
+
+// Process the cryopod throw and determine if catch is successful
+async function processCryopodThrow(message, encounterData, displayName) {
+  const { userId, dinosaur, cryopod, boost, catchChance, battled, weakened } =
+    encounterData;
+
+  // Adjust catch chance if dinosaur was weakened in battle
+  let finalCatchChance = catchChance;
+  if (weakened) {
+    finalCatchChance = Math.min(0.95, catchChance * 1.75); // 75% bonus, max 95%
+  }
+
+  // Create throwing animation embed
+  const throwEmbed = new EmbedBuilder()
+    .setColor(RARITY_COLORS[dinosaur.rarity])
+    .setTitle("🎯 Cryopod Thrown!")
+    .setDescription(
+      `${displayName} throws a **${cryopod.name}** at the wild ${dinosaur.emoji} **${dinosaur.name}**!`
+    )
+    .setImage(dinosaur.image)
+    .setThumbnail(cryopod.image)
+    .setFooter({
+      text: weakened ? "The dinosaur was weakened in battle!" : "Good luck!",
+      iconURL: message.client.user.displayAvatarURL(),
+    });
+
+  await message.edit({ embeds: [throwEmbed], components: [] });
+
+  // Wait for dramatic effect
   await new Promise((resolve) => setTimeout(resolve, 2000));
 
+  // Pokemon-style catch sequence with shaking animation
+  const pokeBallShakes = determineCatchShakes(finalCatchChance);
+  const success = pokeBallShakes === 3; // 3 shakes = successful catch
+
+  // Animate the ball shakes
+  for (let i = 1; i <= pokeBallShakes; i++) {
+    const shakeEmbed = new EmbedBuilder()
+      .setColor(RARITY_COLORS[dinosaur.rarity])
+      .setTitle(`${cryopod.name} is shaking...`)
+      .setDescription(
+        `${displayName}'s ${cryopod.name} shakes ${getShakeText(i)}...`
+      )
+      .setImage(dinosaur.image)
+      .setThumbnail(cryopod.image);
+
+    await message.edit({ embeds: [shakeEmbed] });
+
+    // Pause between shakes
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+  }
+
+  // Display final result
   if (success) {
     // Store the caught dinosaur for button interaction
     lastCaught[userId] = {
       dinosaur: dinosaur,
       cryopod: cryopod,
-      messageId: encounterMsg.id,
+      messageId: message.id,
       timestamp: Date.now(),
     };
-
-    // Success! Add dinosaur to collection
-    // Don't add to collection immediately, wait for user's choice
 
     // Create success embed
     const successEmbed = new EmbedBuilder()
       .setColor("#2ecc71") // Green for success
-      .setTitle("🎉 Catch Successful!")
+      .setTitle("🎊 Gotcha!")
       .setDescription(
-        `${displayName} successfully caught **${dinosaur.name}**!\n\nThe **${cryopod.name}** worked perfectly.\n\n**Choose what to do with your dinosaur:**`
+        `${dinosaur.emoji} **${dinosaur.name}** was caught!\n\nThe **${cryopod.name}** worked perfectly.\n\n**Choose what to do with your dinosaur:**`
       )
       .addFields(
         { name: "Dinosaur", value: `${dinosaur.name}`, inline: true },
@@ -2109,12 +2214,12 @@ async function attemptCatch(message, userId, displayName, cryopod, boost) {
       .setImage(dinosaur.image)
       .setThumbnail(cryopod.image)
       .setFooter({
-        text: `Catch chance was ${Math.round(catchChance * 100)}%`,
+        text: `Catch chance was ${Math.round(finalCatchChance * 100)}%`,
         iconURL: message.client.user.displayAvatarURL(),
       })
       .setTimestamp();
 
-    await encounterMsg.edit({
+    await message.edit({
       embeds: [successEmbed],
       components: [createActionButtons()],
     });
@@ -2122,7 +2227,7 @@ async function attemptCatch(message, userId, displayName, cryopod, boost) {
     // Set up collector for button interactions
     const filter = (i) =>
       (i.customId === "store" || i.customId === "sell") && i.user.id === userId;
-    const collector = encounterMsg.createMessageComponentCollector({
+    const collector = message.createMessageComponentCollector({
       filter,
       time: 60000,
     });
@@ -2157,7 +2262,7 @@ async function attemptCatch(message, userId, displayName, cryopod, boost) {
         // If user didn't respond, store by default
         await addDinosaurToCollection(userId, dinosaur);
 
-        await encounterMsg.edit({
+        await message.edit({
           content: `No choice made, the **${dinosaur.name}** was automatically stored in your collection!`,
           components: [],
         });
@@ -2168,13 +2273,14 @@ async function attemptCatch(message, userId, displayName, cryopod, boost) {
     });
   } else {
     // Failed catch
+    const escapeText = getEscapeText(pokeBallShakes);
 
     // Create failure embed
     const failureEmbed = new EmbedBuilder()
       .setColor("#e74c3c") // Red for failure
-      .setTitle("❌ Catch Failed!")
+      .setTitle("💥 Oh no! The dinosaur broke free!")
       .setDescription(
-        `${displayName}'s attempt to catch **${dinosaur.name}** failed!\n\nThe dinosaur broke free from the **${cryopod.name}** and escaped.`
+        `${escapeText}\n\n${dinosaur.emoji} **${dinosaur.name}** escaped from the **${cryopod.name}**!`
       )
       .addFields(
         { name: "Dinosaur", value: `${dinosaur.name}`, inline: true },
@@ -2188,12 +2294,12 @@ async function attemptCatch(message, userId, displayName, cryopod, boost) {
       .setImage(dinosaur.image)
       .setThumbnail(cryopod.image)
       .setFooter({
-        text: `Catch chance was ${Math.round(catchChance * 100)}%`,
+        text: `Catch chance was ${Math.round(finalCatchChance * 100)}%`,
         iconURL: message.client.user.displayAvatarURL(),
       })
       .setTimestamp();
 
-    await encounterMsg.edit({ embeds: [failureEmbed] });
+    await message.edit({ embeds: [failureEmbed] });
   }
 
   // Track catch attempt stats
@@ -2210,26 +2316,413 @@ async function attemptCatch(message, userId, displayName, cryopod, boost) {
   await db.set(`catchStats_${userId}`, catchStats);
 }
 
-// Add caught dinosaur to collection
-async function addDinosaurToCollection(userId, dinosaur) {
-  // Get dino collection
-  const collection = (await db.get(`dinos_${userId}`)) || {};
+// Start a battle with the wild dinosaur
+async function startWildBattle(message, encounterData, displayName) {
+  const { userId, dinosaur } = encounterData;
 
-  // Add or update dino in collection
-  if (collection[dinosaur.name]) {
-    collection[dinosaur.name].count++;
-  } else {
-    collection[dinosaur.name] = {
-      emoji: dinosaur.emoji,
-      image: dinosaur.image,
-      tier: dinosaur.tier,
-      rarity: dinosaur.rarity,
-      value: dinosaur.value,
-      skill: dinosaur.skill, // Add the skill to the collection
-      count: 1,
-    };
+  // Get user's best dinosaur for battle
+  const userDinos = (await db.get(`dinos_${userId}`)) || {};
+
+  if (Object.keys(userDinos).length === 0) {
+    // User doesn't have any dinosaurs to battle with
+    await message.edit({
+      content:
+        "You don't have any dinosaurs to battle with! Try catching this one directly.",
+      components: [
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId("throw_direct")
+            .setLabel(`Throw Cryopod`)
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji("🔵")
+        ),
+      ],
+    });
+
+    // Set up collector for direct throw button
+    const filter = (i) => i.customId === "throw_direct" && i.user.id === userId;
+    const collector = message.createMessageComponentCollector({
+      filter,
+      time: 30000,
+    });
+
+    collector.on("collect", async (i) => {
+      collector.stop();
+      await processCryopodThrow(message, encounterData, displayName);
+    });
+
+    collector.on("end", async (collected) => {
+      if (collected.size === 0) {
+        await processCryopodThrow(message, encounterData, displayName);
+      }
+    });
+
+    return;
   }
 
-  // Save collection
-  await db.set(`dinos_${userId}`, collection);
+  // Find user's best dinosaur
+  const userDino = findBestDino(userDinos);
+
+  // Create battle preparation embed
+  const battlePrepEmbed = new EmbedBuilder()
+    .setColor(RARITY_COLORS[dinosaur.rarity])
+    .setTitle("⚔️ Wild Dinosaur Battle!")
+    .setDescription(
+      `${displayName} sent out **${userDino.name}** to battle the wild **${dinosaur.name}**!`
+    )
+    .addFields(
+      {
+        name: `Your ${userDino.emoji} ${userDino.name}`,
+        value: `Rarity: ${RARITY_EMOJIS[userDino.rarity]} ${
+          userDino.rarity
+        }\nTier: ${userDino.tier.toUpperCase()}`,
+        inline: true,
+      },
+      {
+        name: `Wild ${dinosaur.emoji} ${dinosaur.name}`,
+        value: `Rarity: ${RARITY_EMOJIS[dinosaur.rarity]} ${
+          dinosaur.rarity
+        }\nTier: ${dinosaur.tier.toUpperCase()}`,
+        inline: true,
+      }
+    )
+    .setThumbnail(userDino.image);
+
+  await message.edit({ embeds: [battlePrepEmbed], components: [] });
+
+  // Create modified copies of dinosaurs for battle
+  const wildDinoStats = createWildDinoStats(dinosaur);
+  const userDinoStats = createUserDinoStats(userDino);
+
+  // Wait 2 seconds before starting battle
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+
+  // Simplified battle loop
+  let battleTurn = 0;
+  let battleLogs = [];
+  let battleOver = false;
+
+  while (!battleOver && battleTurn < 10) {
+    // Max 10 turns
+    battleTurn++;
+
+    // Player's turn
+    if (battleTurn % 2 === 1) {
+      // User attacking wild dino
+      const damage = calculateDamage(userDinoStats, wildDinoStats);
+      wildDinoStats.hp -= damage;
+      battleLogs.push(
+        `${userDino.emoji} ${userDino.name} attacks for ${damage} damage!`
+      );
+
+      if (wildDinoStats.hp <= 0) {
+        battleLogs.push(
+          `Wild ${dinosaur.emoji} ${dinosaur.name} was defeated!`
+        );
+        battleOver = true;
+      }
+    } else {
+      // Wild dino attacking user
+      const damage = calculateDamage(wildDinoStats, userDinoStats);
+      userDinoStats.hp -= damage;
+      battleLogs.push(
+        `Wild ${dinosaur.emoji} ${dinosaur.name} attacks for ${damage} damage!`
+      );
+
+      if (userDinoStats.hp <= 0) {
+        battleLogs.push(`${userDino.emoji} ${userDino.name} was defeated!`);
+        battleOver = true;
+      }
+    }
+
+    // Update battle status
+    const battleEmbed = new EmbedBuilder()
+      .setColor("#ff9900")
+      .setTitle(`⚔️ Battle Turn ${battleTurn}`)
+      .addFields(
+        {
+          name: `Your ${userDino.emoji} ${userDino.name}`,
+          value: `HP: ${createHpBar(userDinoStats.hp, userDinoStats.maxHp)} ${
+            userDinoStats.hp
+          }/${userDinoStats.maxHp}`,
+          inline: true,
+        },
+        {
+          name: `Wild ${dinosaur.emoji} ${dinosaur.name}`,
+          value: `HP: ${createHpBar(wildDinoStats.hp, wildDinoStats.maxHp)} ${
+            wildDinoStats.hp
+          }/${wildDinoStats.maxHp}`,
+          inline: true,
+        },
+        {
+          name: "Battle Log",
+          value: battleLogs.slice(-3).join("\n"),
+          inline: false,
+        }
+      )
+      .setImage(dinosaur.image);
+
+    await message.edit({ embeds: [battleEmbed] });
+
+    // Add pause between turns
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+  }
+
+  // Battle results
+  let battleWon = wildDinoStats.hp <= 0;
+
+  // Update encounter data
+  encounterData.battled = true;
+  encounterData.weakened = battleWon;
+
+  // Create battle results embed
+  const resultsEmbed = new EmbedBuilder()
+    .setColor(battleWon ? "#2ecc71" : "#e74c3c")
+    .setTitle(battleWon ? "🎉 Battle Won!" : "😓 Battle Lost!")
+    .setDescription(
+      battleWon
+        ? `${displayName}'s ${userDino.emoji} ${userDino.name} defeated the wild ${dinosaur.emoji} ${dinosaur.name}!\nThe wild dinosaur was weakened, making it easier to catch!`
+        : `The wild ${dinosaur.emoji} ${dinosaur.name} was too strong!\nYou can still try to catch it, but it won't be weakened.`
+    )
+    .addFields({
+      name: "Battle Result",
+      value: battleWon
+        ? "The wild dinosaur is weakened and easier to catch now!"
+        : "The wild dinosaur is still at full strength!",
+      inline: false,
+    })
+    .setImage(dinosaur.image)
+    .setFooter({
+      text: "Now's your chance to catch it!",
+      iconURL: message.client.user.displayAvatarURL(),
+    });
+
+  await message.edit({
+    embeds: [resultsEmbed],
+    components: [
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("throw_after_battle")
+          .setLabel(`Throw ${encounterData.cryopod.name}`)
+          .setStyle(ButtonStyle.Primary)
+          .setEmoji("🔵")
+      ),
+    ],
+  });
+
+  // Set up collector for post-battle throw
+  const filter = (i) =>
+    i.customId === "throw_after_battle" && i.user.id === userId;
+  const collector = message.createMessageComponentCollector({
+    filter,
+    time: 30000,
+  });
+
+  collector.on("collect", async (i) => {
+    collector.stop();
+    await processCryopodThrow(message, encounterData, displayName);
+  });
+
+  collector.on("end", async (collected) => {
+    if (collected.size === 0) {
+      await processCryopodThrow(message, encounterData, displayName);
+    }
+  });
+}
+
+// Helper functions for Pokemon-style catching
+
+// Determine how many shakes the ball will make before success/failure
+function determineCatchShakes(catchChance) {
+  const roll = Math.random();
+
+  // Pokemon-style: 3 shakes = catch, fewer shakes = escape
+  if (roll <= catchChance) {
+    return 3; // Successful capture (3 shakes)
+  } else if (roll <= catchChance * 1.5) {
+    return 2; // Escape after 2 shakes
+  } else if (roll <= catchChance * 2) {
+    return 1; // Escape after 1 shake
+  } else {
+    return 0; // Immediate escape
+  }
+}
+
+// Get text description for each shake
+function getShakeText(shakeNumber) {
+  const shakeTexts = ["", "once", "twice", "three times"];
+
+  return shakeTexts[shakeNumber];
+}
+
+// Get text description for escape based on number of shakes
+function getEscapeText(shakes) {
+  const escapeTexts = [
+    "The dinosaur broke out immediately!",
+    "The dinosaur broke free after 1 shake!",
+    "So close! The dinosaur broke free after 2 shakes!",
+  ];
+
+  return escapeTexts[shakes] || "The dinosaur escaped!";
+}
+
+// Create a visual representation of catch difficulty
+function getCatchDifficultyBar(catchChance) {
+  let difficultyText;
+  let difficultyBar = "";
+
+  if (catchChance >= 0.8) {
+    difficultyText = "Easy";
+    difficultyBar = "🟩🟩🟩🟩🟩";
+  } else if (catchChance >= 0.6) {
+    difficultyText = "Moderate";
+    difficultyBar = "🟩🟩🟩🟨⬜";
+  } else if (catchChance >= 0.4) {
+    difficultyText = "Challenging";
+    difficultyBar = "🟩🟩🟨🟥⬜";
+  } else if (catchChance >= 0.2) {
+    difficultyText = "Hard";
+    difficultyBar = "🟩🟨🟥🟥⬜";
+  } else {
+    difficultyText = "Very Hard";
+    difficultyBar = "🟨🟥🟥🟥🟥";
+  }
+
+  return `${difficultyText} ${difficultyBar} (${Math.round(
+    catchChance * 100
+  )}%)`;
+}
+
+// Helper function to find the best dinosaur in user's collection
+function findBestDino(dinos) {
+  let bestDino = null;
+  let highestScore = -1;
+
+  for (const [name, data] of Object.entries(dinos)) {
+    // Calculate score based on tier and skill power
+    const tierScore = { low: 1, mid: 2, high: 3, boss: 4 }[data.tier || "low"];
+    const powerScore = data.skill?.power || 0;
+    const score = tierScore * 10 + powerScore;
+
+    if (score > highestScore) {
+      highestScore = score;
+      bestDino = { name, ...data };
+    }
+  }
+
+  return bestDino;
+}
+
+// Create battle stats for wild dinosaur
+function createWildDinoStats(dinosaur) {
+  // Use the tier-based stats from the dinobattle command
+  const tierStats = {
+    low: { hp: 100, attack: 10, defense: 5 },
+    mid: { hp: 150, attack: 15, defense: 10 },
+    high: { hp: 200, attack: 20, defense: 15 },
+    boss: { hp: 250, attack: 25, defense: 20 },
+  };
+
+  const baseStats = tierStats[dinosaur.tier];
+
+  return {
+    name: dinosaur.name,
+    emoji: dinosaur.emoji,
+    tier: dinosaur.tier,
+    rarity: dinosaur.rarity,
+    hp: baseStats.hp,
+    maxHp: baseStats.hp,
+    attack: baseStats.attack,
+    defense: baseStats.defense,
+    skill: dinosaur.skill,
+  };
+}
+
+// Create battle stats for user's dinosaur
+function createUserDinoStats(dinosaur) {
+  // Use the tier-based stats from the dinobattle command
+  const tierStats = {
+    low: { hp: 100, attack: 10, defense: 5 },
+    mid: { hp: 150, attack: 15, defense: 10 },
+    high: { hp: 200, attack: 20, defense: 15 },
+    boss: { hp: 250, attack: 25, defense: 20 },
+  };
+
+  const baseStats = tierStats[dinosaur.tier];
+  const level = dinosaur.level || 1;
+
+  // Apply level bonuses (5% per level)
+  return {
+    name: dinosaur.name,
+    emoji: dinosaur.emoji,
+    tier: dinosaur.tier,
+    rarity: dinosaur.rarity,
+    hp: Math.floor(baseStats.hp * (1 + (level - 1) * 0.05)),
+    maxHp: Math.floor(baseStats.hp * (1 + (level - 1) * 0.05)),
+    attack: Math.floor(baseStats.attack * (1 + (level - 1) * 0.05)),
+    defense: Math.floor(baseStats.defense * (1 + (level - 1) * 0.05)),
+    skill: dinosaur.skill,
+  };
+}
+
+// Calculate battle damage
+function calculateDamage(attacker, defender) {
+  // Similar to dinobattle system
+  const rarityMultiplier = {
+    common: 1.0,
+    uncommon: 1.2,
+    rare: 1.4,
+    legendary: 1.8,
+  };
+
+  const tierMultiplier = {
+    low: 1.0,
+    mid: 1.3,
+    high: 1.6,
+    boss: 2.0,
+  };
+
+  // Calculate base damage using rarity and tier
+  const baseDamage =
+    attacker.attack *
+    rarityMultiplier[attacker.rarity] *
+    tierMultiplier[attacker.tier];
+
+  // Apply random variation (±20%)
+  const variation = Math.random() * 0.4 - 0.2;
+
+  // Apply defense reduction
+  const defenseReduction = 0.25;
+
+  // Calculate final damage
+  let damage = Math.floor(
+    baseDamage *
+      (1 + variation) *
+      (1 - defenseReduction * (defender.defense / 100))
+  );
+
+  // Ensure minimum damage of 1
+  damage = Math.max(1, damage);
+
+  return damage;
+}
+
+// Create HP bar for battles
+function createHpBar(currentHp, maxHp) {
+  const percent = Math.max(0, (currentHp / maxHp) * 100);
+  const fullBlocks = Math.floor(percent / 20); // 5 blocks total
+
+  let hpBar = "";
+
+  if (percent > 60) {
+    hpBar = "🟩".repeat(fullBlocks);
+  } else if (percent > 30) {
+    hpBar = "🟨".repeat(fullBlocks);
+  } else {
+    hpBar = "🟥".repeat(fullBlocks);
+  }
+
+  hpBar += "⬜".repeat(5 - fullBlocks);
+
+  return hpBar;
 }
