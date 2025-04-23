@@ -273,7 +273,8 @@ const POTION_RECIPES = {
     color: "#9b59b6", // Purple
     image: "https://www.dododex.com/media/item/Bug_Repellant.png",
     duration: 15 * 60 * 1000, // 15 minutes
-    description: "Increases legendary dinosaur encounter rate by 10% for 15 minutes",
+    description:
+      "Increases legendary dinosaur encounter rate by 10% for 15 minutes",
     effect: {
       type: "legendary_rate",
       value: 10,
@@ -292,7 +293,8 @@ const POTION_RECIPES = {
     color: "#3498db", // Blue
     image: "https://www.dododex.com/media/item/Element.png",
     duration: 30 * 60 * 1000, // 30 minutes
-    description: "Increases all yields, catch rates, and success chances by 5% for 30 minutes",
+    description:
+      "Increases all yields, catch rates, and success chances by 5% for 30 minutes",
     effect: {
       type: "all_boost",
       value: 5,
@@ -364,7 +366,8 @@ const POTION_CATEGORIES = {
 
 module.exports = {
   name: "craft",
-  description: "Craft potions and items using resources gathered from expeditions",
+  description:
+    "Craft potions and items using resources gathered from expeditions",
   aliases: ["brewing", "alchemy", "potions"],
   usage: "!craft [potion name] or !craft list",
   async execute(message, args) {
@@ -372,8 +375,8 @@ module.exports = {
     const displayName = getDisplayName(message.member);
 
     // Get user's resources
-    const resources = await db.get(`resources_${userId}`) || {};
-    
+    const resources = (await db.get(`resources_${userId}`)) || {};
+
     // If no arguments, show the crafting menu
     if (args.length === 0) {
       return showCraftingMenu(message, userId, displayName);
@@ -385,12 +388,16 @@ module.exports = {
     if (subCommand === "list" || subCommand === "potions") {
       return showPotionsList(message, userId, displayName, args[1]);
     }
-    
+
     // Command to show inventory
-    if (subCommand === "inventory" || subCommand === "resources" || subCommand === "mats") {
+    if (
+      subCommand === "inventory" ||
+      subCommand === "resources" ||
+      subCommand === "mats"
+    ) {
       return showResources(message, userId, displayName);
     }
-    
+
     // Command to show recipe for a specific potion
     if (subCommand === "recipe" || subCommand === "info") {
       const potionName = args.slice(1).join(" ").toLowerCase();
@@ -416,7 +423,9 @@ module.exports = {
 
     // If no potion matched
     if (!matchedPotion) {
-      return message.reply(`I couldn't find a potion named "${potionToCraft}". Use \`!craft list\` to see available potions.`);
+      return message.reply(
+        `I couldn't find a potion named "${potionToCraft}". Use \`!craft list\` to see available potions.`
+      );
     }
 
     // Craft the potion
@@ -441,32 +450,35 @@ async function showCraftingMenu(message, userId, displayName) {
     });
   }
 
-  embed.addFields(
-    {
-      name: "Available Commands",
-      value: 
-        "`!craft list` - View all available potions\n" +
-        "`!craft list [category]` - View potions in a specific category\n" +
-        "`!craft inventory` - View your resources\n" +
-        "`!craft recipe [potion]` - View recipe for a specific potion\n" +
-        "`!craft [potion name]` - Craft a specific potion",
-      inline: false,
-    }
-  );
+  embed.addFields({
+    name: "Available Commands",
+    value:
+      "`!craft list` - View all available potions\n" +
+      "`!craft list [category]` - View potions in a specific category\n" +
+      "`!craft inventory` - View your resources\n" +
+      "`!craft recipe [potion]` - View recipe for a specific potion\n" +
+      "`!craft [potion name]` - Craft a specific potion",
+    inline: false,
+  });
 
   // Show active potions
-  const activeBuffs = await db.get(`buffs_${userId}`) || [];
+  const activeBuffs = (await db.get(`buffs_${userId}`)) || [];
   if (activeBuffs.length > 0) {
-    const currentBuffs = activeBuffs.filter(buff => buff.expiry > Date.now() || buff.expiry === -1);
-    
+    const currentBuffs = activeBuffs.filter(
+      (buff) => buff.expiry > Date.now() || buff.expiry === -1
+    );
+
     if (currentBuffs.length > 0) {
       let buffsText = "";
-      
+
       for (const buff of currentBuffs) {
-        const timeLeft = buff.expiry === -1 ? "until used" : `<t:${Math.floor(buff.expiry/1000)}:R>`;
+        const timeLeft =
+          buff.expiry === -1
+            ? "until used"
+            : `<t:${Math.floor(buff.expiry / 1000)}:R>`;
         buffsText += `${buff.emoji} **${buff.name}**: ${buff.description} (Expires ${timeLeft})\n`;
       }
-      
+
       embed.addFields({
         name: "Active Potions",
         value: buffsText,
@@ -481,27 +493,30 @@ async function showCraftingMenu(message, userId, displayName) {
 // Show list of available potions
 async function showPotionsList(message, userId, displayName, category = null) {
   // Get user's resources
-  const resources = await db.get(`resources_${userId}`) || {};
-  
+  const resources = (await db.get(`resources_${userId}`)) || {};
+
   let potions;
   let title;
   let color;
-  
+
   if (category && POTION_CATEGORIES[category]) {
     // Filter potions by category
     potions = Object.entries(POTION_RECIPES)
       .filter(([id, potion]) => potion.category === category)
       .map(([id, potion]) => ({ id, ...potion }));
-    
+
     title = `${POTION_CATEGORIES[category].emoji} ${POTION_CATEGORIES[category].name}`;
     color = "#3498db";
   } else {
     // Show all potions
-    potions = Object.entries(POTION_RECIPES).map(([id, potion]) => ({ id, ...potion }));
+    potions = Object.entries(POTION_RECIPES).map(([id, potion]) => ({
+      id,
+      ...potion,
+    }));
     title = "🧪 All Available Potions";
     color = "#9b59b6";
   }
-  
+
   // Sort potions by category
   potions.sort((a, b) => {
     if (a.category !== b.category) {
@@ -509,33 +524,37 @@ async function showPotionsList(message, userId, displayName, category = null) {
     }
     return a.name.localeCompare(b.name);
   });
-  
+
   const embed = new EmbedBuilder()
     .setColor(color)
     .setTitle(title)
     .setDescription(`Here are the potions you can craft, ${displayName}:`)
     .setThumbnail("https://www.dododex.com/media/item/Beer_Jar.png");
-  
+
   // Group potions by category for display
   const potionsByCategory = {};
-  
+
   for (const potion of potions) {
     if (!potionsByCategory[potion.category]) {
       potionsByCategory[potion.category] = [];
     }
-    
+
     // Check if user has ingredients
     const canCraft = checkIngredients(resources, potion.ingredients);
     const statusEmoji = canCraft ? "✅" : "❌";
-    
-    potionsByCategory[potion.category].push(`${statusEmoji} ${potion.emoji} **${potion.name}**`);
+
+    potionsByCategory[potion.category].push(
+      `${statusEmoji} ${potion.emoji} **${potion.name}**`
+    );
   }
-  
+
   // Add each category to the embed
-  for (const [categoryId, categoryPotions] of Object.entries(potionsByCategory)) {
+  for (const [categoryId, categoryPotions] of Object.entries(
+    potionsByCategory
+  )) {
     if (categoryPotions.length > 0) {
       const categoryInfo = POTION_CATEGORIES[categoryId];
-      
+
       embed.addFields({
         name: `${categoryInfo.emoji} ${categoryInfo.name}`,
         value: categoryPotions.join("\n"),
@@ -543,171 +562,207 @@ async function showPotionsList(message, userId, displayName, category = null) {
       });
     }
   }
-  
+
   embed.addFields({
     name: "How to Craft",
-    value: "Use `!craft recipe [potion name]` to see ingredients\nUse `!craft [potion name]` to craft a potion",
+    value:
+      "Use `!craft recipe [potion name]` to see ingredients\nUse `!craft [potion name]` to craft a potion",
     inline: false,
   });
-  
+
   embed.setFooter({
     text: "✅ = You have the ingredients | ❌ = Missing some ingredients",
     iconURL: message.client.user.displayAvatarURL(),
   });
-  
+
   return message.channel.send({ embeds: [embed] });
 }
 
 // Show user's resources
 async function showResources(message, userId, displayName) {
-  const resources = await db.get(`resources_${userId}`) || {};
-  
+  const resources = (await db.get(`resources_${userId}`)) || {};
+
   if (Object.keys(resources).length === 0) {
-    return message.reply("You don't have any resources yet! Use `!expedition` to send your dinosaurs to gather resources.");
+    return message.reply(
+      "You don't have any resources yet! Use `!expedition` to send your dinosaurs to gather resources."
+    );
   }
-  
+
   const embed = new EmbedBuilder()
     .setColor("#2ecc71")
     .setTitle("🎒 Resource Inventory")
     .setDescription(`${displayName}'s expedition resources:`)
     .setThumbnail("https://www.dododex.com/media/item/Inventory.png");
-  
+
   // Group resources by type
   const resourceGroups = {
     common: [],
     uncommon: [],
-    rare: []
+    rare: [],
   };
-  
+
   // Sort resources into groups
   for (const [name, data] of Object.entries(resources)) {
     const amount = data.amount || 0;
     if (amount > 0) {
       // Categorize by rarity (based on some known rare resources)
       let group = "common";
-      
-      if (["Black Pearl", "Element Dust", "Ancient Amber", "Artifact", "Unicorn Horn", "Death Worm Horn", "Venom", "Biotoxin"]
-          .includes(name)) {
+
+      if (
+        [
+          "Black Pearl",
+          "Element Dust",
+          "Ancient Amber",
+          "Artifact",
+          "Unicorn Horn",
+          "Death Worm Horn",
+          "Venom",
+          "Biotoxin",
+        ].includes(name)
+      ) {
         group = "rare";
-      } else if (["Crystal", "Oil", "Silica Pearls", "Obsidian", "Polymer", "Metal", "Rare Flower", "Rare Mushroom"]
-                .includes(name)) {
+      } else if (
+        [
+          "Crystal",
+          "Oil",
+          "Silica Pearls",
+          "Obsidian",
+          "Polymer",
+          "Metal",
+          "Rare Flower",
+          "Rare Mushroom",
+        ].includes(name)
+      ) {
         group = "uncommon";
       }
-      
+
       resourceGroups[group].push(`${data.emoji} **${name}**: ${amount}`);
     }
   }
-  
+
   // Add each group to embed if not empty
   if (resourceGroups.rare.length > 0) {
     embed.addFields({
       name: "🌟 Rare Resources",
       value: resourceGroups.rare.join("\n"),
-      inline: false
+      inline: false,
     });
   }
-  
+
   if (resourceGroups.uncommon.length > 0) {
     embed.addFields({
       name: "✨ Uncommon Resources",
       value: resourceGroups.uncommon.join("\n"),
-      inline: false
+      inline: false,
     });
   }
-  
+
   if (resourceGroups.common.length > 0) {
     embed.addFields({
       name: "📦 Common Resources",
       value: resourceGroups.common.join("\n"),
-      inline: false
+      inline: false,
     });
   }
-  
+
   embed.setFooter({
     text: "Use !expedition to gather more resources | !craft list to view potions",
     iconURL: message.client.user.displayAvatarURL(),
   });
-  
+
   return message.channel.send({ embeds: [embed] });
 }
 
 // Show recipe for a specific potion
 async function showPotionRecipe(message, userId, displayName, potionName) {
   if (!potionName) {
-    return message.reply("Please specify a potion name. Example: `!craft recipe Minor Catch Rate Potion`");
+    return message.reply(
+      "Please specify a potion name. Example: `!craft recipe Minor Catch Rate Potion`"
+    );
   }
-  
+
   // Get user's resources
-  const resources = await db.get(`resources_${userId}`) || {};
-  
+  const resources = (await db.get(`resources_${userId}`)) || {};
+
   // Find matching potion
   let matchedPotion = null;
-  
+
   for (const [id, potion] of Object.entries(POTION_RECIPES)) {
     if (potion.name.toLowerCase().includes(potionName)) {
       matchedPotion = { id, ...potion };
       break;
     }
   }
-  
+
   if (!matchedPotion) {
-    return message.reply(`I couldn't find a potion named "${potionName}". Use \`!craft list\` to see available potions.`);
+    return message.reply(
+      `I couldn't find a potion named "${potionName}". Use \`!craft list\` to see available potions.`
+    );
   }
-  
+
   const embed = new EmbedBuilder()
     .setColor(matchedPotion.color || "#3498db")
     .setTitle(`${matchedPotion.emoji} ${matchedPotion.name} Recipe`)
     .setDescription(matchedPotion.description)
     .setThumbnail(matchedPotion.image);
-  
+
   // Add ingredients list
   let ingredientsList = "";
   let canCraft = true;
-  
+
   for (const ingredient of matchedPotion.ingredients) {
-    const userHas = resources[ingredient.name] ? resources[ingredient.name].amount || 0 : 0;
+    const userHas = resources[ingredient.name]
+      ? resources[ingredient.name].amount || 0
+      : 0;
     const hasEnough = userHas >= ingredient.amount;
-    
+
     if (!hasEnough) canCraft = false;
-    
+
     const emoji = hasEnough ? "✅" : "❌";
-    const resourceEmoji = resources[ingredient.name] ? resources[ingredient.name].emoji : "📦";
-    
+    const resourceEmoji = resources[ingredient.name]
+      ? resources[ingredient.name].emoji
+      : "📦";
+
     ingredientsList += `${emoji} ${resourceEmoji} **${ingredient.name}**: ${userHas}/${ingredient.amount}\n`;
   }
-  
+
   embed.addFields(
     {
       name: "Required Ingredients",
       value: ingredientsList,
-      inline: false
+      inline: false,
     },
     {
       name: "Effect",
       value: matchedPotion.description,
-      inline: true
+      inline: true,
     },
     {
       name: "Duration",
-      value: matchedPotion.duration === -1 ? "One-time use" : `${matchedPotion.duration / (60 * 1000)} minutes`,
-      inline: true
+      value:
+        matchedPotion.duration === -1
+          ? "One-time use"
+          : `${matchedPotion.duration / (60 * 1000)} minutes`,
+      inline: true,
     },
     {
       name: "How to Craft",
-      value: canCraft 
+      value: canCraft
         ? `You have all the ingredients! Type \`!craft ${matchedPotion.name}\` to create this potion.`
         : "You're missing some ingredients. Send your dinosaurs on expeditions to gather more resources!",
-      inline: false
+      inline: false,
     }
   );
-  
+
   return message.channel.send({ embeds: [embed] });
 }
 
 // Check if user has all required ingredients
 function checkIngredients(resources, ingredients) {
   for (const ingredient of ingredients) {
-    const userHas = resources[ingredient.name] ? resources[ingredient.name].amount || 0 : 0;
+    const userHas = resources[ingredient.name]
+      ? resources[ingredient.name].amount || 0
+      : 0;
     if (userHas < ingredient.amount) {
       return false;
     }
@@ -718,23 +773,23 @@ function checkIngredients(resources, ingredients) {
 // Craft a potion
 async function craftPotion(message, userId, displayName, potion) {
   // Get user's resources
-  const resources = await db.get(`resources_${userId}`) || {};
-  
+  const resources = (await db.get(`resources_${userId}`)) || {};
+
   // Check if user has all ingredients
   const hasIngredients = checkIngredients(resources, potion.ingredients);
-  
+
   if (!hasIngredients) {
     return showPotionRecipe(message, userId, displayName, potion.name);
   }
-  
+
   // Deduct ingredients from resources
   for (const ingredient of potion.ingredients) {
     resources[ingredient.name].amount -= ingredient.amount;
   }
-  
+
   // Save updated resources
   await db.set(`resources_${userId}`, resources);
-  
+
   // Add potion to user's buffs
   const expiry = potion.duration === -1 ? -1 : Date.now() + potion.duration;
   const potionBuff = {
@@ -744,14 +799,14 @@ async function craftPotion(message, userId, displayName, potion) {
     description: potion.description,
     effect: potion.effect,
     expiry: expiry,
-    imageUrl: potion.image
+    imageUrl: potion.image,
   };
-  
+
   // Get existing buffs and add the new potion
-  const buffs = await db.get(`buffs_${userId}`) || [];
+  const buffs = (await db.get(`buffs_${userId}`)) || [];
   buffs.push(potionBuff);
   await db.set(`buffs_${userId}`, buffs);
-  
+
   // Create success embed
   const embed = new EmbedBuilder()
     .setColor(potion.color || "#2ecc71")
@@ -762,53 +817,66 @@ async function craftPotion(message, userId, displayName, potion) {
       {
         name: "Effect",
         value: potion.description,
-        inline: false
+        inline: false,
       },
       {
         name: "Duration",
-        value: potion.duration === -1 
-          ? "One-time use (until consumed)" 
-          : `${potion.duration / (60 * 1000)} minutes (expires <t:${Math.floor((Date.now() + potion.duration)/1000)}:R>)`,
-        inline: false
+        value:
+          potion.duration === -1
+            ? "One-time use (until consumed)"
+            : `${
+                potion.duration / (60 * 1000)
+              } minutes (expires <t:${Math.floor(
+                (Date.now() + potion.duration) / 1000
+              )}:R>)`,
+        inline: false,
       }
     );
-  
+
   // Add list of ingredients used
   let ingredientText = "";
   for (const ingredient of potion.ingredients) {
     const emoji = resources[ingredient.name]?.emoji || "📦";
     ingredientText += `${emoji} **${ingredient.name}** x${ingredient.amount}\n`;
   }
-  
+
   embed.addFields({
     name: "Ingredients Used",
     value: ingredientText,
-    inline: false
+    inline: false,
   });
-  
+
   // Add instruction on how to use based on potion type
-  let usageText = "Your potion has been added to your active buffs automatically! ";
-  
-  if (potion.effect.type === "catch_rate" || potion.effect.type === "rare_catch_rate") {
+  let usageText =
+    "Your potion has been added to your active buffs automatically! ";
+
+  if (
+    potion.effect.type === "catch_rate" ||
+    potion.effect.type === "rare_catch_rate"
+  ) {
     usageText += "It will be applied when you use the `!catch` command.";
-  } else if (potion.effect.type === "expedition_luck" || potion.effect.type === "resource_yield") {
-    usageText += "It will be applied when you start or complete expeditions with `!expedition`.";
+  } else if (
+    potion.effect.type === "expedition_luck" ||
+    potion.effect.type === "resource_yield"
+  ) {
+    usageText +=
+      "It will be applied when you start or complete expeditions with `!expedition`.";
   } else if (potion.effect.type === "guaranteed_catch") {
     usageText += "It will be used automatically on your next `!catch` attempt.";
   } else if (potion.effect.type === "all_boost") {
     usageText += "It will boost all your activities.";
   }
-  
+
   embed.addFields({
     name: "How to Use",
     value: usageText,
-    inline: false
+    inline: false,
   });
-  
+
   embed.setFooter({
     text: "Craft more potions with !craft | Check active potions with !status",
     iconURL: message.client.user.displayAvatarURL(),
   });
-  
+
   return message.channel.send({ embeds: [embed] });
 }
