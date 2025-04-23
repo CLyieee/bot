@@ -1764,6 +1764,7 @@ module.exports = {
   description: "Use cryopods to catch ARK dinosaurs",
   usage: "!catch [cryopod] [boost]",
   cooldown: 10 * 1 * 1000, // 10 minutes cooldown
+  DINOSAURS, // Export the DINOSAURS array
   async execute(message, args) {
     const userId = message.author.id;
     const displayName = getDisplayName(message.member);

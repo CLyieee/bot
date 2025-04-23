@@ -7,8 +7,9 @@ const {
   ButtonStyle,
 } = require("discord.js");
 
-// Import DINOSAURS array from catch.js
-const { DINOSAURS } = require("./catch");
+// Import DINOSAURS array from catch.js correctly
+const catchCommand = require("./catch");
+const DINOSAURS = catchCommand.DINOSAURS;
 
 // Rarity colors
 const RARITY_COLORS = {
