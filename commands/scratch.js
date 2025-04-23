@@ -28,9 +28,9 @@ const TICKETS = {
   gold: {
     price: 1000,
     emoji: "🥇",
-    maxPayout: 7500,
+    maxPayout: 3000,
     chances: {
-      win: 0.45, // 45% chance to win something
+      win: 0.15, // 45% chance to win something
       jackpot: 0.1, // 10% chance to win jackpot (among winners)
     },
     description: "Gold Ticket: 1,000 coins - Win up to 7,500 coins!",
