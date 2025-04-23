@@ -36,12 +36,12 @@ const TICKETS = {
     description: "Gold Ticket: 1,000 coins - Win up to 7,500 coins!",
   },
   diamond: {
-    price: 2500,
+    price: 50000,
     emoji: "💎",
-    maxPayout: 25000,
+    maxPayout: 105000,
     chances: {
-      win: 0.5, // 50% chance to win something
-      jackpot: 0.12, // 12% chance to win jackpot (among winners)
+      win: 0.01, // 50% chance to win something
+      jackpot: 0.1, // 12% chance to win jackpot (among winners)
     },
     description: "Diamond Ticket: 2,500 coins - Win up to 25,000 coins!",
   },
@@ -55,7 +55,7 @@ module.exports = {
   description: "Buy and scratch lottery tickets",
   usage: "!scratch [ticket type]",
   aliases: ["scratchers", "lottery", "ticket"],
-  cooldown: 3000, // 3 seconds
+  cooldown: 60000, // 3 seconds
   async execute(message, args) {
     const userId = message.author.id;
     const displayName = getDisplayName(message.member);
