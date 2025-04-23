@@ -379,467 +379,643 @@ async function handleAddItem(interaction, session, itemType, userId) {
 
 // Handle adding a dinosaur to the trade
 async function handleAddDinosaur(interaction, session, role, userId) {
-  // Fetch user's dinosaurs
-  const userDinos = (await db.get(`dinos_${userId}`)) || {};
-
-  if (Object.keys(userDinos).length === 0) {
-    await interaction.reply({
-      content: "You don't have any dinosaurs to trade!",
-      ephemeral: true,
-    });
-    return;
-  }
-
-  // Create select menu options for dinosaurs (up to 25 due to Discord limits)
-  const dinoOptions = Object.entries(userDinos)
-    .slice(0, 25)
-    .map(([name, data]) => {
-      const rarity = data.rarity || "common";
-      const value = data.value || 0;
-      const emoji = RARITY_EMOJIS[rarity] || "🦖";
-
-      return {
-        label: `${name} (${data.count || 1}x)`,
-        description: `${
-          rarity.charAt(0).toUpperCase() + rarity.slice(1)
-        } - Value: ${formatNumber(value)} coins`,
-        value: `dino_${name}_${session.id}_${role}`,
-        emoji: emoji,
-      };
-    });
-
-  // Create select menu
-  const selectMenu = new ActionRowBuilder().addComponents(
-    new StringSelectMenuBuilder()
-      .setCustomId(`select_dino_${session.id}_${role}`)
-      .setPlaceholder("Select a dinosaur to add to the trade")
-      .addOptions(dinoOptions)
-  );
-
-  // Create quantity buttons (only shown after selection)
-  const quantityButtons = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`qty_1_${session.id}_${role}`)
-      .setLabel("1")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId(`qty_5_${session.id}_${role}`)
-      .setLabel("5")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId(`qty_10_${session.id}_${role}`)
-      .setLabel("10")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId(`qty_all_${session.id}_${role}`)
-      .setLabel("All")
-      .setStyle(ButtonStyle.Secondary)
-  );
-
-  // Show selection menu
-  await interaction.reply({
-    content: "Select a dinosaur to add to the trade:",
-    components: [selectMenu],
-    ephemeral: true,
-  });
-
-  // Collect the selection
   try {
-    const selectInteraction = await interaction.channel.awaitMessageComponent({
-      filter: (i) =>
-        i.customId.includes(session.id) &&
-        i.customId.includes(role) &&
-        i.user.id === userId,
-      time: 30000,
-    });
+    // Fetch user's dinosaurs
+    const userDinos = (await db.get(`dinos_${userId}`)) || {};
 
-    // Parse the selection - Use unique variable name instead of "ignored"
-    const [typePrefix, selectType, dinoName, sessionId, userRole] =
-      selectInteraction.values[0].split("_");
+    if (Object.keys(userDinos).length === 0) {
+      return await interaction.reply({
+        content: "You don't have any dinosaurs to trade!",
+        ephemeral: true,
+      });
+    }
 
-    // Show quantity options
-    await selectInteraction.update({
-      content: `Selected ${dinoName}. Now choose quantity:`,
-      components: [quantityButtons],
+    // Create select menu options for dinosaurs (up to 25 due to Discord limits)
+    const dinoOptions = Object.entries(userDinos)
+      .slice(0, 25)
+      .map(([name, data]) => {
+        const rarity = data.rarity || "common";
+        const value = data.value || 0;
+        const emoji = RARITY_EMOJIS[rarity] || "🦖";
+
+        return {
+          label: `${name} (${data.count || 1}x)`,
+          description: `${
+            rarity.charAt(0).toUpperCase() + rarity.slice(1)
+          } - Value: ${formatNumber(value)} coins`,
+          value: `dino_${name}_${session.id}_${role}`,
+          emoji: emoji,
+        };
+      });
+
+    // Create select menu
+    const selectMenu = new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(`select_dino_${session.id}_${role}`)
+        .setPlaceholder("Select a dinosaur to add to the trade")
+        .addOptions(dinoOptions)
+    );
+
+    // Create quantity buttons (only shown after selection)
+    const quantityButtons = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`qty_1_${session.id}_${role}`)
+        .setLabel("1")
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(`qty_5_${session.id}_${role}`)
+        .setLabel("5")
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(`qty_10_${session.id}_${role}`)
+        .setLabel("10")
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(`qty_all_${session.id}_${role}`)
+        .setLabel("All")
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+    // Show selection menu
+    await interaction.reply({
+      content: "Select a dinosaur to add to the trade:",
+      components: [selectMenu],
       ephemeral: true,
     });
 
-    // Collect quantity selection
-    const qtyInteraction = await interaction.channel.awaitMessageComponent({
-      filter: (i) =>
-        i.customId.startsWith("qty_") &&
+    // Collect the selection - FIX: Better error handling
+    try {
+      const filter = (i) =>
         i.customId.includes(session.id) &&
         i.customId.includes(role) &&
-        i.user.id === userId,
-      time: 30000,
-    });
+        i.user.id === userId;
 
-    // Get the quantity - Use unique variable name instead of "ignored"
-    const [qtyPrefix, qtyStr] = qtyInteraction.customId.split("_");
-    const userDino = userDinos[dinoName];
+      const selectInteraction = await interaction.channel.awaitMessageComponent(
+        {
+          filter: filter,
+          time: 30000,
+        }
+      );
 
-    // Calculate actual quantity (respecting available amount)
-    const availableQty = userDino.count || 1;
-    let quantity = 1;
+      // FIX: Ensure values array exists and has values
+      if (!selectInteraction.values || selectInteraction.values.length === 0) {
+        await interaction.editReply({
+          content: "No selection was made. Please try again.",
+          components: [],
+          ephemeral: true,
+        });
+        return;
+      }
 
-    if (qtyStr === "all") {
-      quantity = availableQty;
-    } else {
-      quantity = Math.min(parseInt(qtyStr), availableQty);
+      // Parse the selection
+      const selectedParts = selectInteraction.values[0].split("_");
+      if (selectedParts.length < 3) {
+        await interaction.editReply({
+          content: "Invalid selection format. Please try again.",
+          components: [],
+          ephemeral: true,
+        });
+        return;
+      }
+
+      // FIX: Safely extract data from the selection
+      const dinoName = selectedParts[1];
+
+      // Check if the dino exists
+      if (!userDinos[dinoName]) {
+        await selectInteraction.update({
+          content: `Could not find ${dinoName} in your collection. It may have been removed.`,
+          components: [],
+          ephemeral: true,
+        });
+        return;
+      }
+
+      // Show quantity options
+      await selectInteraction.update({
+        content: `Selected ${dinoName}. Now choose quantity:`,
+        components: [quantityButtons],
+        ephemeral: true,
+      });
+
+      // Collect quantity selection
+      const qtyInteraction = await interaction.channel.awaitMessageComponent({
+        filter: (i) =>
+          i.customId.startsWith("qty_") &&
+          i.customId.includes(session.id) &&
+          i.customId.includes(role) &&
+          i.user.id === userId,
+        time: 30000,
+      });
+
+      // Get the quantity - Use unique variable name
+      const qtyParts = qtyInteraction.customId.split("_");
+      const qtyStr = qtyParts[1];
+
+      // FIX: Safely get the userDino and ensure it exists
+      const userDino = userDinos[dinoName];
+      if (!userDino) {
+        await qtyInteraction.update({
+          content: `Could not find ${dinoName} in your collection. It may have been removed.`,
+          components: [],
+          ephemeral: true,
+        });
+        return;
+      }
+
+      // Calculate actual quantity (respecting available amount)
+      // FIX: Safely handle count
+      const availableQty = userDino.count || 1;
+      let quantity = 1;
+
+      if (qtyStr === "all") {
+        quantity = availableQty;
+      } else {
+        const parsedQty = parseInt(qtyStr);
+        if (!isNaN(parsedQty) && parsedQty > 0) {
+          quantity = Math.min(parsedQty, availableQty);
+        }
+      }
+
+      // Add dino to the trade
+      const offerItem = {
+        type: "dino",
+        name: dinoName,
+        amount: quantity,
+        value: (userDino.value || 10) * quantity,
+        data: { ...userDino, count: quantity },
+      };
+
+      // Update the session with the new item
+      if (role === "sender") {
+        session.senderOffer.items.push(offerItem);
+        session.senderReady = false; // Reset ready state when adding items
+      } else {
+        session.receiverOffer.items.push(offerItem);
+        session.receiverReady = false; // Reset ready state when adding items
+      }
+
+      // Update trade message
+      await updateTradeMessage(session);
+
+      // Acknowledge the addition
+      await qtyInteraction.update({
+        content: `Added ${quantity}x ${dinoName} to the trade.`,
+        components: [],
+        ephemeral: true,
+      });
+    } catch (error) {
+      // Handle timeout or error
+      if (error.name === "Error" && error.message.includes("time")) {
+        await interaction
+          .editReply({
+            content: "Selection timed out. Please try again.",
+            components: [],
+            ephemeral: true,
+          })
+          .catch(() => {}); // Ignore if the initial reply was already deleted
+      } else {
+        console.error("Error in dino selection:", error);
+        await interaction
+          .editReply({
+            content: "There was an error processing your selection.",
+            components: [],
+            ephemeral: true,
+          })
+          .catch(() => {}); // Ignore if the initial reply was already deleted
+      }
     }
-
-    // Add dino to the trade
-    const offerItem = {
-      type: "dino",
-      name: dinoName,
-      amount: quantity,
-      value: (userDino.value || 10) * quantity,
-      data: { ...userDino, count: quantity },
-    };
-
-    // Update the session with the new item
-    if (role === "sender") {
-      session.senderOffer.items.push(offerItem);
-      session.senderReady = false; // Reset ready state when adding items
-    } else {
-      session.receiverOffer.items.push(offerItem);
-      session.receiverReady = false; // Reset ready state when adding items
-    }
-
-    // Update trade message
-    await updateTradeMessage(session);
-
-    // Acknowledge the addition
-    await qtyInteraction.update({
-      content: `Added ${quantity}x ${dinoName} to the trade.`,
-      components: [],
-      ephemeral: true,
-    });
   } catch (error) {
-    // Handle timeout or error
-    if (error.name === "Error" && error.message.includes("time")) {
-      await interaction.editReply({
-        content: "Selection timed out. Please try again.",
-        components: [],
+    console.error("Dinosaur trading error:", error);
+    await interaction
+      .reply({
+        content: "There was an error setting up the dinosaur trading menu.",
         ephemeral: true,
-      });
-    } else {
-      console.error("Error in dino selection:", error);
-      await interaction.editReply({
-        content: "There was an error processing your selection.",
-        components: [],
-        ephemeral: true,
-      });
-    }
+      })
+      .catch(() => {}); // Handle if we can't reply
   }
 }
 
 // Handle adding inventory items to the trade
 async function handleAddInventoryItem(interaction, session, role, userId) {
-  // Fetch user's inventory
-  const userItems = (await db.get(`inventory_${userId}`)) || {};
-
-  if (Object.keys(userItems).length === 0) {
-    await interaction.reply({
-      content: "You don't have any items to trade!",
-      ephemeral: true,
-    });
-    return;
-  }
-
-  // Create select menu options for items
-  const itemOptions = Object.entries(userItems)
-    .slice(0, 25)
-    .map(([name, data]) => {
-      const rarity = data.rarity || "common";
-      const value = data.value || 0;
-      const emoji = data.emoji || "📦";
-
-      return {
-        label: `${name} (${data.count || 1}x)`,
-        description: `Value: ${formatNumber(value)} coins`,
-        value: `item_${name}_${session.id}_${role}`,
-        emoji: emoji,
-      };
-    });
-
-  // Create select menu
-  const selectMenu = new ActionRowBuilder().addComponents(
-    new StringSelectMenuBuilder()
-      .setCustomId(`select_item_${session.id}_${role}`)
-      .setPlaceholder("Select an item to add to the trade")
-      .addOptions(itemOptions)
-  );
-
-  // Create quantity buttons
-  const quantityButtons = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`qty_1_${session.id}_${role}`)
-      .setLabel("1")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId(`qty_5_${session.id}_${role}`)
-      .setLabel("5")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId(`qty_10_${session.id}_${role}`)
-      .setLabel("10")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId(`qty_all_${session.id}_${role}`)
-      .setLabel("All")
-      .setStyle(ButtonStyle.Secondary)
-  );
-
-  // Show selection menu
-  await interaction.reply({
-    content: "Select an item to add to the trade:",
-    components: [selectMenu],
-    ephemeral: true,
-  });
-
-  // Rest of the item selection logic similar to dinosaur selection
   try {
-    const selectInteraction = await interaction.channel.awaitMessageComponent({
-      filter: (i) =>
-        i.customId.includes(session.id) &&
-        i.customId.includes(role) &&
-        i.user.id === userId,
-      time: 30000,
-    });
+    // Fetch user's inventory
+    const userItems = (await db.get(`inventory_${userId}`)) || {};
 
-    // Parse the selection - Fix: replace _ with ignored
-    const [typePrefix, selectType, itemName, sessionId, userRole] =
-      selectInteraction.values[0].split("_");
+    if (Object.keys(userItems).length === 0) {
+      return await interaction.reply({
+        content: "You don't have any items to trade!",
+        ephemeral: true,
+      });
+    }
 
-    // Show quantity options
-    await selectInteraction.update({
-      content: `Selected ${itemName}. Now choose quantity:`,
-      components: [quantityButtons],
+    // Create select menu options for items
+    const itemOptions = Object.entries(userItems)
+      .slice(0, 25)
+      .map(([name, data]) => {
+        const rarity = data.rarity || "common";
+        const value = data.value || 0;
+        const emoji = data.emoji || "📦";
+
+        return {
+          label: `${name} (${data.count || 1}x)`,
+          description: `Value: ${formatNumber(value)} coins`,
+          value: `item_${name}_${session.id}_${role}`,
+          emoji: emoji,
+        };
+      });
+
+    // Create select menu
+    const selectMenu = new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(`select_item_${session.id}_${role}`)
+        .setPlaceholder("Select an item to add to the trade")
+        .addOptions(itemOptions)
+    );
+
+    // Create quantity buttons
+    const quantityButtons = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`qty_1_${session.id}_${role}`)
+        .setLabel("1")
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(`qty_5_${session.id}_${role}`)
+        .setLabel("5")
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(`qty_10_${session.id}_${role}`)
+        .setLabel("10")
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(`qty_all_${session.id}_${role}`)
+        .setLabel("All")
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+    // Show selection menu
+    await interaction.reply({
+      content: "Select an item to add to the trade:",
+      components: [selectMenu],
       ephemeral: true,
     });
 
-    // Collect quantity selection
-    const qtyInteraction = await interaction.channel.awaitMessageComponent({
-      filter: (i) =>
-        i.customId.startsWith("qty_") &&
+    // Collect the selection with better error handling
+    try {
+      const filter = (i) =>
         i.customId.includes(session.id) &&
         i.customId.includes(role) &&
-        i.user.id === userId,
-      time: 30000,
-    });
+        i.user.id === userId;
 
-    // Get the quantity - Fix: replace _ with ignored
-    const [qtyPrefix, qtyStr] = qtyInteraction.customId.split("_");
-    const userItem = userItems[itemName];
+      const selectInteraction = await interaction.channel.awaitMessageComponent(
+        {
+          filter: filter,
+          time: 30000,
+        }
+      );
 
-    // Calculate actual quantity
-    const availableQty = userItem.count || 1;
-    let quantity = 1;
+      // Ensure values array exists and has values
+      if (!selectInteraction.values || selectInteraction.values.length === 0) {
+        await interaction.editReply({
+          content: "No selection was made. Please try again.",
+          components: [],
+          ephemeral: true,
+        });
+        return;
+      }
 
-    if (qtyStr === "all") {
-      quantity = availableQty;
-    } else {
-      quantity = Math.min(parseInt(qtyStr), availableQty);
+      // Parse the selection
+      const selectedParts = selectInteraction.values[0].split("_");
+      if (selectedParts.length < 3) {
+        await interaction.editReply({
+          content: "Invalid selection format. Please try again.",
+          components: [],
+          ephemeral: true,
+        });
+        return;
+      }
+
+      // Safely extract data
+      const itemName = selectedParts[1];
+
+      // Check if the item exists
+      if (!userItems[itemName]) {
+        await selectInteraction.update({
+          content: `Could not find ${itemName} in your inventory. It may have been removed.`,
+          components: [],
+          ephemeral: true,
+        });
+        return;
+      }
+
+      // Show quantity options
+      await selectInteraction.update({
+        content: `Selected ${itemName}. Now choose quantity:`,
+        components: [quantityButtons],
+        ephemeral: true,
+      });
+
+      // Collect quantity selection
+      const qtyInteraction = await interaction.channel.awaitMessageComponent({
+        filter: (i) =>
+          i.customId.startsWith("qty_") &&
+          i.customId.includes(session.id) &&
+          i.customId.includes(role) &&
+          i.user.id === userId,
+        time: 30000,
+      });
+
+      // Get the quantity with safer parsing
+      const qtyParts = qtyInteraction.customId.split("_");
+      const qtyStr = qtyParts[1];
+
+      // Safety check the item again
+      const userItem = userItems[itemName];
+      if (!userItem) {
+        await qtyInteraction.update({
+          content: `Could not find ${itemName} in your inventory. It may have been removed.`,
+          components: [],
+          ephemeral: true,
+        });
+        return;
+      }
+
+      // Calculate actual quantity
+      const availableQty = userItem.count || 1;
+      let quantity = 1;
+
+      if (qtyStr === "all") {
+        quantity = availableQty;
+      } else {
+        const parsedQty = parseInt(qtyStr);
+        if (!isNaN(parsedQty) && parsedQty > 0) {
+          quantity = Math.min(parsedQty, availableQty);
+        }
+      }
+
+      // Add item to the trade
+      const offerItem = {
+        type: "item",
+        name: itemName,
+        amount: quantity,
+        value: (userItem.value || 5) * quantity,
+        data: { ...userItem, count: quantity },
+      };
+
+      // Update the session
+      if (role === "sender") {
+        session.senderOffer.items.push(offerItem);
+        session.senderReady = false;
+      } else {
+        session.receiverOffer.items.push(offerItem);
+        session.receiverReady = false;
+      }
+
+      // Update trade message
+      await updateTradeMessage(session);
+
+      // Acknowledge
+      await qtyInteraction.update({
+        content: `Added ${quantity}x ${itemName} to the trade.`,
+        components: [],
+        ephemeral: true,
+      });
+    } catch (error) {
+      // Handle timeout or error
+      if (error.name === "Error" && error.message.includes("time")) {
+        await interaction
+          .editReply({
+            content: "Selection timed out. Please try again.",
+            components: [],
+            ephemeral: true,
+          })
+          .catch(() => {}); // Ignore if reply was deleted
+      } else {
+        console.error("Error in item selection:", error);
+        await interaction
+          .editReply({
+            content: "There was an error processing your selection.",
+            components: [],
+            ephemeral: true,
+          })
+          .catch(() => {}); // Ignore if reply was deleted
+      }
     }
-
-    // Add item to the trade
-    const offerItem = {
-      type: "item",
-      name: itemName,
-      amount: quantity,
-      value: (userItem.value || 5) * quantity,
-      data: { ...userItem, count: quantity },
-    };
-
-    // Update the session
-    if (role === "sender") {
-      session.senderOffer.items.push(offerItem);
-      session.senderReady = false;
-    } else {
-      session.receiverOffer.items.push(offerItem);
-      session.receiverReady = false;
-    }
-
-    // Update trade message
-    await updateTradeMessage(session);
-
-    // Acknowledge
-    await qtyInteraction.update({
-      content: `Added ${quantity}x ${itemName} to the trade.`,
-      components: [],
-      ephemeral: true,
-    });
   } catch (error) {
-    // Handle timeout or error
-    if (error.name === "Error" && error.message.includes("time")) {
-      await interaction.editReply({
-        content: "Selection timed out. Please try again.",
-        components: [],
+    console.error("Item trading error:", error);
+    await interaction
+      .reply({
+        content: "There was an error setting up the item trading menu.",
         ephemeral: true,
-      });
-    } else {
-      console.error("Error in item selection:", error);
-      await interaction.editReply({
-        content: "There was an error processing your selection.",
-        components: [],
-        ephemeral: true,
-      });
-    }
+      })
+      .catch(() => {}); // Handle if we can't reply
   }
 }
 
 // Handle adding money to the trade
 async function handleAddMoney(interaction, session, role, userId) {
-  // Get user's balance
-  const userBalance = (await db.get(`cash_${userId}`)) || 0;
+  try {
+    // Get user's balance
+    const userBalance = (await db.get(`cash_${userId}`)) || 0;
 
-  if (userBalance <= 0) {
+    if (userBalance <= 0) {
+      return await interaction.reply({
+        content: "You don't have any money to trade!",
+        ephemeral: true,
+      });
+    }
+
+    // Show options for common amounts
+    const moneyButtons = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`money_1000_${session.id}_${role}`)
+        .setLabel("1,000")
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(`money_5000_${session.id}_${role}`)
+        .setLabel("5,000")
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(`money_10000_${session.id}_${role}`)
+        .setLabel("10,000")
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(`money_custom_${session.id}_${role}`)
+        .setLabel("Custom Amount")
+        .setStyle(ButtonStyle.Primary)
+    );
+
+    // Show money options
     await interaction.reply({
-      content: "You don't have any money to trade!",
+      content: `You have ${formatNumber(
+        userBalance
+      )} coins. Choose an amount to add:`,
+      components: [moneyButtons],
       ephemeral: true,
     });
-    return;
-  }
 
-  // Show options for common amounts
-  const moneyButtons = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`money_1000_${session.id}_${role}`)
-      .setLabel("1,000")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId(`money_5000_${session.id}_${role}`)
-      .setLabel("5,000")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId(`money_10000_${session.id}_${role}`)
-      .setLabel("10,000")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId(`money_custom_${session.id}_${role}`)
-      .setLabel("Custom Amount")
-      .setStyle(ButtonStyle.Primary)
-  );
-
-  // Show money options
-  await interaction.reply({
-    content: `You have ${formatNumber(
-      userBalance
-    )} coins. Choose an amount to add:`,
-    components: [moneyButtons],
-    ephemeral: true,
-  });
-
-  try {
-    const moneyInteraction = await interaction.channel.awaitMessageComponent({
-      filter: (i) =>
+    try {
+      const filter = (i) =>
         i.customId.startsWith("money_") &&
         i.customId.includes(session.id) &&
         i.customId.includes(role) &&
-        i.user.id === userId,
-      time: 30000,
-    });
+        i.user.id === userId;
 
-    // Fix: replace _ with ignored
-    const [moneyPrefix, amountStr, sessionId, userRole] =
-      moneyInteraction.customId.split("_");
-
-    let amount = 0;
-
-    if (amountStr === "custom") {
-      // Handle custom amount
-      await moneyInteraction.update({
-        content:
-          "Please enter the amount you want to trade (type a number in the chat):",
-        components: [],
-        ephemeral: true,
-      });
-
-      // Wait for a text response
-      const messageFilter = (m) => m.author.id === userId;
-      const collected = await interaction.channel.awaitMessages({
-        filter: messageFilter,
-        max: 1,
+      const moneyInteraction = await interaction.channel.awaitMessageComponent({
+        filter: filter,
         time: 30000,
-        errors: ["time"],
       });
 
-      const enteredAmount = parseInt(collected.first().content);
-
-      if (isNaN(enteredAmount) || enteredAmount <= 0) {
-        await interaction.followUp({
-          content: "Invalid amount. Please try again.",
+      const moneyParts = moneyInteraction.customId.split("_");
+      if (moneyParts.length < 2) {
+        await interaction.editReply({
+          content: "Invalid selection. Please try again.",
+          components: [],
           ephemeral: true,
         });
-        // Delete user's message to keep chat clean
-        try {
-          await collected.first().delete();
-        } catch (e) {}
         return;
       }
 
-      amount = Math.min(enteredAmount, userBalance);
+      const amountStr = moneyParts[1];
+      let amount = 0;
 
-      // Delete user's message to keep chat clean
-      try {
-        await collected.first().delete();
-      } catch (e) {}
-    } else {
-      // Use predefined amount
-      amount = Math.min(parseInt(amountStr), userBalance);
-    }
+      if (amountStr === "custom") {
+        // Handle custom amount with better error handling
+        await moneyInteraction.update({
+          content:
+            "Please enter the amount you want to trade (type a number in the chat):",
+          components: [],
+          ephemeral: true,
+        });
 
-    // Add money to the trade
-    const offerItem = {
-      type: "money",
-      name: "atlyss coins",
-      amount: amount,
-      value: amount,
-      data: { emoji: "💰" },
-    };
+        try {
+          // Wait for a text response with shorter timeout to reduce errors
+          const messageFilter = (m) => m.author.id === userId;
+          const collected = await interaction.channel.awaitMessages({
+            filter: messageFilter,
+            max: 1,
+            time: 20000,
+            errors: ["time"],
+          });
 
-    // Update the session
-    if (role === "sender") {
-      session.senderOffer.items.push(offerItem);
-      session.senderReady = false;
-    } else {
-      session.receiverOffer.items.push(offerItem);
-      session.receiverReady = false;
-    }
+          // Always verify we got a message
+          if (collected.size === 0) {
+            await interaction.followUp({
+              content:
+                "You didn't provide an amount in time. Please try again.",
+              ephemeral: true,
+            });
+            return;
+          }
 
-    // Update trade message
-    await updateTradeMessage(session);
+          const enteredAmount = parseInt(collected.first().content.trim());
 
-    // Acknowledge
-    if (amountStr === "custom") {
-      await interaction.followUp({
-        content: `Added ${formatNumber(amount)} coins to the trade.`,
-        ephemeral: true,
-      });
-    } else {
-      await moneyInteraction.update({
-        content: `Added ${formatNumber(amount)} coins to the trade.`,
-        components: [],
-        ephemeral: true,
-      });
+          if (isNaN(enteredAmount) || enteredAmount <= 0) {
+            await interaction.followUp({
+              content: "Invalid amount. Please try again.",
+              ephemeral: true,
+            });
+            // Delete user's message to keep chat clean
+            try {
+              await collected.first().delete();
+            } catch (e) {}
+            return;
+          }
+
+          amount = Math.min(enteredAmount, userBalance);
+
+          // Delete user's message to keep chat clean
+          try {
+            await collected.first().delete();
+          } catch (e) {}
+        } catch (error) {
+          // Handle message collection timeout more gracefully
+          console.error("Error collecting money amount:", error);
+          await interaction.followUp({
+            content:
+              "The amount entry timed out. Please try adding money again.",
+            ephemeral: true,
+          });
+          return;
+        }
+      } else {
+        // Use predefined amount
+        const parsedAmount = parseInt(amountStr);
+        if (isNaN(parsedAmount) || parsedAmount <= 0) {
+          await moneyInteraction.update({
+            content: "Invalid amount. Please try again.",
+            components: [],
+            ephemeral: true,
+          });
+          return;
+        }
+
+        amount = Math.min(parsedAmount, userBalance);
+      }
+
+      // Add money to the trade
+      const offerItem = {
+        type: "money",
+        name: "atlyss coins",
+        amount: amount,
+        value: amount,
+        data: { emoji: "💰" },
+      };
+
+      // Update the session
+      if (role === "sender") {
+        session.senderOffer.items.push(offerItem);
+        session.senderReady = false;
+      } else {
+        session.receiverOffer.items.push(offerItem);
+        session.receiverReady = false;
+      }
+
+      // Update trade message
+      await updateTradeMessage(session);
+
+      // Acknowledge
+      if (amountStr === "custom") {
+        await interaction.followUp({
+          content: `Added ${formatNumber(amount)} coins to the trade.`,
+          ephemeral: true,
+        });
+      } else {
+        await moneyInteraction.update({
+          content: `Added ${formatNumber(amount)} coins to the trade.`,
+          components: [],
+          ephemeral: true,
+        });
+      }
+    } catch (error) {
+      // Handle timeout or error
+      if (error.name === "Error" && error.message.includes("time")) {
+        await interaction
+          .editReply({
+            content: "Selection timed out. Please try again.",
+            components: [],
+            ephemeral: true,
+          })
+          .catch(() => {}); // Ignore if reply was deleted
+      } else {
+        console.error("Error in money selection:", error);
+        await interaction
+          .editReply({
+            content: "There was an error processing your selection.",
+            components: [],
+            ephemeral: true,
+          })
+          .catch(() => {}); // Ignore if reply was deleted
+      }
     }
   } catch (error) {
-    // Handle timeout or error
-    if (error.name === "Error" && error.message.includes("time")) {
-      await interaction.editReply({
-        content: "Selection timed out. Please try again.",
-        components: [],
+    console.error("Money trading error:", error);
+    await interaction
+      .reply({
+        content: "There was an error setting up the money trading menu.",
         ephemeral: true,
-      });
-    } else {
-      console.error("Error in money selection:", error);
-      await interaction.editReply({
-        content: "There was an error processing your selection.",
-        components: [],
-        ephemeral: true,
-      });
-    }
+      })
+      .catch(() => {}); // Handle if we can't reply
   }
 }
 
@@ -917,8 +1093,20 @@ async function handleReadyState(interaction, session, role) {
 
     // Check if threshold is met
     if (valueRatio >= TRADE_THRESHOLD) {
-      // Execute the trade
-      await executeInteractiveTrade(interaction, session);
+      // Notify users about the countdown
+      await interaction.reply({
+        content: `✅ Both traders are ready! Trade will execute in 5 seconds... 
+You can still cancel the trade before it completes.`,
+        ephemeral: false,
+      });
+
+      // Add countdown property to session
+      session.countdown = 5;
+      session.tradeStarted = Date.now();
+      session.tradePending = true;
+
+      // Start the countdown
+      await startTradeCountdown(interaction, session);
     } else {
       // Alert about threshold not being met
       await interaction.reply({
@@ -942,6 +1130,76 @@ async function handleReadyState(interaction, session, role) {
       ephemeral: true,
     });
   }
+}
+
+// Start the trade countdown
+async function startTradeCountdown(interaction, session) {
+  // Update countdown message
+  const countdownEmbed = new EmbedBuilder()
+    .setColor("#ff9900")
+    .setTitle("🔄 Trade Processing")
+    .setDescription(
+      `Trade between ${session.senderName} and ${session.receiverName} will complete in ${session.countdown} seconds.`
+    )
+    .addFields(
+      {
+        name: `${session.senderName}'s Offer ${
+          session.senderReady ? "✅" : ""
+        }`,
+        value:
+          formatTradeItems(session.senderOffer.items) || "No items offered yet",
+        inline: true,
+      },
+      {
+        name: `${session.receiverName}'s Offer ${
+          session.receiverReady ? "✅" : ""
+        }`,
+        value:
+          formatTradeItems(session.receiverOffer.items) ||
+          "No items offered yet",
+        inline: true,
+      }
+    )
+    .setFooter({
+      text: `Both traders have agreed to the trade`,
+      iconURL: interaction.client.user.displayAvatarURL(),
+    })
+    .setTimestamp();
+
+  // Create cancel button
+  const cancelRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`cancel_${session.id}`)
+      .setLabel("Cancel Trade")
+      .setStyle(ButtonStyle.Danger)
+      .setEmoji("❌")
+  );
+
+  // Update the message with countdown
+  await session.message.edit({
+    embeds: [countdownEmbed],
+    components: [cancelRow],
+  });
+
+  // Wait 1 second
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+
+  // Check if trade was cancelled
+  if (!interactiveTradeSessions.has(session.id) || !session.tradePending) {
+    return;
+  }
+
+  // Decrement countdown
+  session.countdown--;
+
+  // If countdown isn't finished, continue
+  if (session.countdown > 0) {
+    await startTradeCountdown(interaction, session);
+    return;
+  }
+
+  // Execute the trade when countdown reaches 0
+  await executeInteractiveTrade(interaction, session);
 }
 
 // Execute the interactive trade when both parties are ready
@@ -1102,6 +1360,11 @@ async function handleCancelTrade(interaction, session) {
   activeTradeOffers.delete(session.senderId);
   activeTradeOffers.delete(session.receiverId);
   interactiveTradeSessions.delete(session.id);
+
+  // Stop any pending trade countdown
+  if (session.tradePending) {
+    session.tradePending = false;
+  }
 
   // Update the trade message with cancelled status
   const cancelEmbed = new EmbedBuilder()
